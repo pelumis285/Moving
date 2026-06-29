@@ -7,15 +7,15 @@ import { LOAD_SIZES, formatCAD } from "@/lib/pricing";
 export const metadata: Metadata = {
   title: "Professional Movers in Ontario | Local & Long-Distance Moving",
   description:
-    "Maple Move Ontario delivers reliable residential and commercial moving services across Ontario. Licensed, insured, upfront pricing. Get an instant quote and book online today.",
+    "Surftmove delivers reliable residential and commercial moving services across Ontario with upfront pricing and online booking. Get an instant quote today.",
   alternates: { canonical: "/" },
 };
 
 const features = [
-  { icon: "🛡️", title: "Licensed & Insured", text: "Fully licensed Ontario movers with comprehensive cargo and liability coverage." },
+  { icon: "🛡️", title: "Careful Handling", text: "Thoughtful moving support for residential and commercial jobs of different sizes." },
   { icon: "💲", title: "Transparent Pricing", text: "No hidden fees. See your estimate instantly with our online calculator." },
-  { icon: "⏱️", title: "On-Time, Every Time", text: "Punctual, efficient crews that respect your schedule and your belongings." },
-  { icon: "📦", title: "Full-Service Packing", text: "Optional professional packing, supplies, and careful handling of fragile items." },
+  { icon: "⏱️", title: "Fast Responses", text: "Reach out by phone, email, or form and get a quick reply during business hours." },
+  { icon: "📦", title: "Flexible Support", text: "Book online, request a quote, and add notes so we can plan the move around your needs." },
 ];
 
 const steps = [
@@ -53,8 +53,8 @@ export default function HomePage() {
               Moving made simple, <span className="text-red-500">stress-free</span>, and affordable.
             </h1>
             <p className="mt-5 max-w-xl text-lg text-slate-200">
-              {site.name} is your trusted partner for local and long-distance moves. Licensed, insured,
-              and upfront about pricing — get an instant quote and book online in minutes.
+              {site.name} helps with local and long-distance moves across Ontario with simple online
+              booking and upfront pricing.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -84,10 +84,10 @@ export default function HomePage() {
       <section className="border-b border-slate-200 bg-slate-50">
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-8 text-center sm:px-6 md:grid-cols-4">
           {[
-            { stat: "12,000+", label: "Moves Completed" },
-            { stat: "4.9/5", label: "Average Rating" },
-            { stat: "100%", label: "Insured & Licensed" },
-            { stat: "24/7", label: "Online Booking" },
+            { stat: "Quick", label: "Quote Responses" },
+            { stat: "Online", label: "Booking Requests" },
+            { stat: "Clear", label: "Upfront Pricing" },
+            { stat: "Ontario", label: "Service Area" },
           ].map((item) => (
             <div key={item.label}>
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">{item.stat}</p>
@@ -100,7 +100,7 @@ export default function HomePage() {
       {/* Features */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">Why choose Maple Move?</h2>
+          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">Why choose {site.shortName}?</h2>
           <p className="mt-3 text-slate-600">
             We combine professional crews, modern equipment, and honest pricing to make your next move
             the easiest one yet.

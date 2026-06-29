@@ -5,7 +5,7 @@ import { site } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Contact Us",
   description:
-    "Get in touch with Maple Move Ontario. Call us, email us, or send a message and our team will respond quickly. Serving all of Ontario.",
+    "Get in touch with Surftmove. Call us, email us, or send a message and our team will respond quickly. Serving all of Ontario.",
   alternates: { canonical: "/contact" },
 };
 
@@ -57,7 +57,7 @@ export default function ContactPage() {
               <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5">
                 <div className="grid h-12 w-12 place-items-center rounded-xl bg-red-50 text-2xl">📍</div>
                 <div>
-                  <p className="text-sm text-slate-500">Office</p>
+                  <p className="text-sm text-slate-500">Location</p>
                   <p className="text-base font-semibold text-slate-900">{site.address}</p>
                 </div>
               </div>

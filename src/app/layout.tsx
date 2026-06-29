@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     template: `%s | ${site.name}`,
   },
   description:
-    "Maple Move Ontario offers reliable local and long-distance moving services across Ontario. Get an instant quote, book online, and enjoy a stress-free move with licensed, insured movers.",
+    "Surftmove offers reliable local and long-distance moving services across Ontario. Get an instant quote, book online, and enjoy a stress-free move with upfront pricing.",
   keywords: [
     "movers Ontario",
     "moving company Toronto",
@@ -54,10 +54,7 @@ const jsonLd = {
   email: site.email,
   address: {
     "@type": "PostalAddress",
-    streetAddress: "150 Front Street W",
-    addressLocality: "Toronto",
     addressRegion: "ON",
-    postalCode: "M5J 2X5",
     addressCountry: "CA",
   },
   areaServed: "Ontario, Canada",

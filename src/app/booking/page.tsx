@@ -5,7 +5,7 @@ import { site } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Book Your Move",
   description:
-    "Book your move with Maple Move Ontario. Enter your origin, destination, load size, and date to request a booking and get an instant estimate.",
+    "Book your move with Surftmove. Enter your origin, destination, load size, and date to request a booking and get an instant estimate.",
   alternates: { canonical: "/booking" },
 };
 

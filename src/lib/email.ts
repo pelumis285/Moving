@@ -20,7 +20,7 @@ export async function sendOwnerEmail({ subject, html, replyTo }: EmailPayload): 
 }> {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.NOTIFY_EMAIL || site.email;
-  const from = process.env.FROM_EMAIL || "Maple Move <onboarding@resend.dev>";
+  const from = process.env.FROM_EMAIL || `${site.name} <onboarding@resend.dev>`;
 
   if (!apiKey) {
     console.info(

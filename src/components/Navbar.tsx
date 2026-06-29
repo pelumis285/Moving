@@ -16,9 +16,7 @@ export default function Navbar() {
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-red-600 text-lg font-bold text-white">
             🍁
           </span>
-          <span className="text-lg font-extrabold tracking-tight text-slate-900">
-            Maple<span className="text-red-600">Move</span>
-          </span>
+          <span className="text-lg font-extrabold tracking-tight text-slate-900">{site.shortName}</span>
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">

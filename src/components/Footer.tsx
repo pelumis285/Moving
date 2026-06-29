@@ -8,12 +8,10 @@ export default function Footer() {
         <div className="md:col-span-2">
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-red-600 text-lg">🍁</span>
-            <span className="text-lg font-extrabold text-white">
-              Maple<span className="text-red-500">Move</span>
-            </span>
+            <span className="text-lg font-extrabold text-white">{site.shortName}</span>
           </div>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
-            {site.tagline} Licensed and fully insured movers serving {site.serviceArea}.
+            {site.tagline} Serving {site.serviceArea}.
           </p>
         </div>
 
@@ -43,7 +41,7 @@ export default function Footer() {
                 {site.email}
               </a>
             </li>
-            <li>{site.address}</li>
+            <li>{site.serviceArea}</li>
             <li>{site.hours}</li>
           </ul>
         </div>
