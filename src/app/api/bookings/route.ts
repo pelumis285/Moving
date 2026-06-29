@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
 import { calculatePrice, formatCAD } from "@/lib/pricing";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
@@ -56,9 +56,16 @@ export async function POST(request: Request) {
   const quote = calculatePrice(loadSize, distanceKm);
   const estimatedCost = quote ? quote.total : 0;
 
+  if (!isDatabaseConfigured()) {
+    return Response.json(
+      { ok: false, error: "Booking service is not configured yet. Please try again later." },
+      { status: 503 },
+    );
+  }
+
   let inserted;
   try {
-    [inserted] = await db
+    [inserted] = await getDb()
       .insert(bookings)
       .values({
         fullName,

@@ -1,4 +1,4 @@
-import { db } from "@/db";
+import { getDb, isDatabaseConfigured } from "@/db";
 import { contacts } from "@/db/schema";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
 import { site } from "@/lib/site";
@@ -40,9 +40,16 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: errors.join(" ") }, { status: 400 });
   }
 
+  if (!isDatabaseConfigured()) {
+    return Response.json(
+      { ok: false, error: "Contact service is not configured yet. Please try again later." },
+      { status: 503 },
+    );
+  }
+
   let inserted;
   try {
-    [inserted] = await db
+    [inserted] = await getDb()
       .insert(contacts)
       .values({
         name,
