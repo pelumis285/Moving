@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { site } from "@/lib/site";
-
-const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -64,7 +61,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-CA" className={inter.variable}>
+    <html lang="en-CA">
       <body className="flex min-h-screen flex-col bg-white font-sans text-slate-800 antialiased">
         <Script
           id="ld-json"

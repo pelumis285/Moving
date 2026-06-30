@@ -11,8 +11,15 @@ export const bookings = pgTable("bookings", {
   moveDate: varchar("move_date", { length: 40 }).notNull(),
   distanceKm: integer("distance_km").default(0),
   estimatedCost: numeric("estimated_cost", { precision: 10, scale: 2 }).default("0"),
+  finalCost: numeric("final_cost", { precision: 10, scale: 2 }),
   notes: text("notes"),
+  adminNotes: text("admin_notes"),
   status: varchar("status", { length: 30 }).default("new").notNull(),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  confirmationEmailSentAt: timestamp("confirmation_email_sent_at", { withTimezone: true }),
+  rescheduleToken: varchar("reschedule_token", { length: 80 }),
+  rescheduleTokenExpiresAt: timestamp("reschedule_token_expires_at", { withTimezone: true }),
+  lastRescheduledAt: timestamp("last_rescheduled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
