@@ -32,11 +32,20 @@ export const metadata: Metadata = {
     siteName: site.name,
     locale: "en_CA",
     type: "website",
+    images: [
+      {
+        url: "/logo-surftmove.png",
+        width: 1263,
+        height: 848,
+        alt: `${site.name} logo`,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: `${site.name} | Professional Movers in Ontario`,
     description: site.tagline,
+    images: ["/logo-surftmove.png"],
   },
   robots: { index: true, follow: true },
 };
@@ -45,7 +54,7 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "MovingCompany",
   name: site.name,
-  image: `${site.url}/og.jpg`,
+  image: `${site.url}/logo-surftmove.png`,
   url: site.url,
   telephone: site.phone,
   email: site.email,

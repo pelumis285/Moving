@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import BrandLogo from "@/components/BrandLogo";
 import { navLinks, site } from "@/lib/site";
 
 export default function Navbar() {
@@ -13,10 +14,8 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-red-600 text-lg font-bold text-white">
-            🍁
-          </span>
-          <span className="text-lg font-extrabold tracking-tight text-slate-900">{site.shortName}</span>
+          <BrandLogo priority />
+          <span className="sr-only">{site.shortName}</span>
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">

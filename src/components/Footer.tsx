@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 import { navLinks, site } from "@/lib/site";
 
 export default function Footer() {
@@ -7,8 +8,7 @@ export default function Footer() {
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-4">
         <div className="md:col-span-2">
           <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-red-600 text-lg">🍁</span>
-            <span className="text-lg font-extrabold text-white">{site.shortName}</span>
+            <BrandLogo variant="footer" />
           </div>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
             {site.tagline} Serving {site.serviceArea}.
