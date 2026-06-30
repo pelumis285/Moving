@@ -37,8 +37,8 @@ export default function Footer() {
               </a>
             </li>
             <li>
-              <a href={`mailto:${site.email}`} className="transition-colors hover:text-white">
-                {site.email}
+              <a href={`mailto:${site.publicEmail}`} className="transition-colors hover:text-white">
+                {site.publicEmail}
               </a>
             </li>
             <li>{site.serviceArea}</li>

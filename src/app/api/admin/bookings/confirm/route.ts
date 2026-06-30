@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     html: buildBookingConfirmationEmail(updated, {
       rescheduleUrl: includeRescheduleLink ? getRescheduleUrl(rescheduleToken) : null,
     }),
-    replyTo: process.env.NOTIFY_EMAIL || site.email,
+    replyTo: process.env.NOTIFY_EMAIL || site.operationsEmail,
   });
 
   return Response.json({

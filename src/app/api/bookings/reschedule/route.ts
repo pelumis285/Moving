@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     to: updated.email,
     subject: `Your ${site.name} move date was updated to ${formatMoveDate(updated.moveDate)}`,
     html: buildCustomerRescheduleEmail(updated),
-    replyTo: process.env.NOTIFY_EMAIL || site.email,
+    replyTo: process.env.NOTIFY_EMAIL || site.operationsEmail,
   });
 
   const ownerEmail = await sendOwnerEmail({

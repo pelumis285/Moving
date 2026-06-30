@@ -44,13 +44,13 @@ export default function ContactPage() {
               </a>
 
               <a
-                href={`mailto:${site.email}`}
+                href={`mailto:${site.publicEmail}`}
                 className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-red-300 hover:shadow-sm"
               >
                 <div className="grid h-12 w-12 place-items-center rounded-xl bg-red-50 text-2xl">✉️</div>
                 <div>
                   <p className="text-sm text-slate-500">Email</p>
-                  <p className="text-lg font-semibold text-slate-900">{site.email}</p>
+                  <p className="text-lg font-semibold text-slate-900">{site.publicEmail}</p>
                 </div>
               </a>
 
@@ -71,9 +71,22 @@ export default function ContactPage() {
               </div>
             </div>
 
-            <p className="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-              <strong>Service area:</strong> {site.serviceArea}.
-            </p>
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <p className="text-sm font-semibold text-slate-900">Popular Ontario cities we serve</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {site.primaryCities.map((city) => (
+                  <span
+                    key={city}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600"
+                  >
+                    {city}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-4 text-sm text-slate-600">
+                Need a different route? We still cover moves across Ontario beyond this featured city list.
+              </p>
+            </div>
           </div>
 
           {/* Contact form */}

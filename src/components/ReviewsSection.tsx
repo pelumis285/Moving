@@ -40,6 +40,10 @@ export default function ReviewsSection() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const approvedCount = reviews.length;
+  const averageRating =
+    approvedCount > 0 ? (reviews.reduce((sum, review) => sum + review.rating, 0) / approvedCount).toFixed(1) : null;
+  const visibleReviews = reviews.slice(0, 3);
 
   useEffect(() => {
     async function loadReviews() {
@@ -94,11 +98,26 @@ export default function ReviewsSection() {
     <section className="bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">Customer Reviews</h2>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-600">Testimonials</p>
+          <h2 className="mt-3 text-3xl font-bold text-slate-900 sm:text-4xl">What recent customers are saying</h2>
           <p className="mt-3 text-slate-600">
-            Real feedback from past customers. New reviews are screened by admin before they appear
-            publicly.
+            Real customer feedback only. Every public review is approved before it appears on the site.
           </p>
+        </div>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+            <p className="text-3xl font-extrabold text-slate-900">{averageRating ?? "New"}</p>
+            <p className="mt-1 text-sm text-slate-600">{averageRating ? "Average rating" : "Testimonials"}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+            <p className="text-3xl font-extrabold text-slate-900">{approvedCount}</p>
+            <p className="mt-1 text-sm text-slate-600">Approved review{approvedCount === 1 ? "" : "s"}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+            <p className="text-3xl font-extrabold text-slate-900">100%</p>
+            <p className="mt-1 text-sm text-slate-600">Admin-screened before publishing</p>
+          </div>
         </div>
 
         <div className="mt-12 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
@@ -106,7 +125,7 @@ export default function ReviewsSection() {
             {loading ? (
               <p className="text-sm text-slate-500">Loading reviews...</p>
             ) : reviews.length > 0 ? (
-              reviews.slice(0, 6).map((review) => (
+              visibleReviews.map((review) => (
                 <article key={review.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <p className="text-sm font-semibold tracking-wide text-amber-500">{getStars(review.rating)}</p>
                   <p className="mt-3 text-sm leading-relaxed text-slate-600">{review.review}</p>
@@ -120,7 +139,8 @@ export default function ReviewsSection() {
               ))
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-600">
-                No public reviews yet. The first approved customer review will appear here.
+                No public testimonials are live yet. As soon as approved customer reviews come in, they
+                will appear here automatically.
               </div>
             )}
           </div>

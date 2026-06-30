@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 };
 
 const features = [
-  { icon: "🛡️", title: "Careful Handling", text: "Thoughtful moving support for residential and commercial jobs of different sizes." },
-  { icon: "💲", title: "Transparent Pricing", text: "No hidden fees. See your estimate instantly with our online calculator." },
-  { icon: "⏱️", title: "Fast Responses", text: "Reach out by phone, email, or form and get a quick reply during business hours." },
-  { icon: "📦", title: "Flexible Support", text: "Book online, request a quote, and add notes so we can plan the move around your needs." },
+  { icon: "🛡️", title: "Insured Move-Day Support", text: "Careful handling for homes, condos, offices, and long-distance Ontario routes." },
+  { icon: "💲", title: "Transparent Pricing", text: "No hidden fees. Build a fast estimate online, then add the details that affect the real job." },
+  { icon: "⏱️", title: "Fast Responses", text: "Reach us by phone, email, or form and get a prompt answer during business hours." },
+  { icon: "📦", title: "Built for Real-World Moves", text: "Fragile items, heavy pieces, stairs, elevators, and long carries are all factored into planning." },
 ];
 
 const steps = [
@@ -26,11 +26,36 @@ const steps = [
 ];
 
 const services = [
-  { title: "Residential Moving", text: "Apartments, condos, and houses of every size across Ontario.", icon: "🏠" },
-  { title: "Long-Distance Moves", text: "Toronto to Ottawa, London to Kingston — we cover the whole province.", icon: "🚚" },
+  { title: "Residential Moving", text: "Apartments, condos, townhomes, and houses across Ontario.", icon: "🏠" },
+  { title: "Long-Distance Moves", text: "Toronto to Ottawa, Kingston to London, and routes across the province.", icon: "🚚" },
   { title: "Commercial & Office", text: "Minimal-downtime relocations for businesses and offices.", icon: "🏢" },
   { title: "Packing & Supplies", text: "Boxes, wrapping, and pro packing to keep your items safe.", icon: "📦" },
 ];
+
+const heroBadges = [
+  "Insured & Licensed",
+  `Serving Ontario Since ${site.foundedYear}`,
+  "Condo, Residential & Office Moves",
+];
+
+const trustPoints = [
+  { stat: "Insured", label: "Licensed move-day support" },
+  { stat: "Ontario-Wide", label: "Local & long-distance routes" },
+  { stat: "Custom", label: "Quotes for fragile, heavy, and stair-heavy jobs" },
+  { stat: "Direct", label: "Booking, billing, and follow-up online" },
+];
+
+const serviceRoutes = [
+  "Toronto condo and apartment moves",
+  "Ottawa household and office relocations",
+  "Kingston to Toronto long-distance routes",
+  "Moves between major Ontario cities",
+];
+
+const heroImage = {
+  src: "https://images.pexels.com/photos/7464244/pexels-photo-7464244.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
+  alt: "Professional movers carrying boxes into a bright new home in Ontario",
+};
 
 export default function HomePage() {
   return (
@@ -38,8 +63,8 @@ export default function HomePage() {
       {/* Hero */}
       <section className="relative overflow-hidden bg-slate-900">
         <Image
-          src="https://images.pexels.com/photos/7464244/pexels-photo-7464244.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600"
-          alt="Professional movers carrying boxes into a bright new home in Ontario"
+          src={heroImage.src}
+          alt={heroImage.alt}
           fill
           priority
           sizes="100vw"
@@ -54,9 +79,19 @@ export default function HomePage() {
               Moving made simple, <span className="text-red-500">stress-free</span>, and affordable.
             </h1>
             <p className="mt-5 max-w-xl text-lg text-slate-200">
-              {site.name} helps with local and long-distance moves across Ontario with simple online
-              booking and upfront pricing.
+              {site.name} helps with local and long-distance moves across Ontario with straightforward
+              booking, custom quote review, and move-day planning built for real homes and buildings.
             </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              {heroBadges.map((badge) => (
+                <span
+                  key={badge}
+                  className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/95 backdrop-blur"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/booking"
@@ -84,17 +119,63 @@ export default function HomePage() {
       {/* Trust bar */}
       <section className="border-b border-slate-200 bg-slate-50">
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-8 text-center sm:px-6 md:grid-cols-4">
-          {[
-            { stat: "Quick", label: "Quote Responses" },
-            { stat: "Online", label: "Booking Requests" },
-            { stat: "Clear", label: "Upfront Pricing" },
-            { stat: "Ontario", label: "Service Area" },
-          ].map((item) => (
+          {trustPoints.map((item) => (
             <div key={item.label}>
               <p className="text-2xl font-extrabold text-slate-900 sm:text-3xl">{item.stat}</p>
               <p className="mt-1 text-sm text-slate-600">{item.label}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Service area */}
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
+        <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-600">Where We Move</p>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900 sm:text-4xl">
+              Serving the Ontario cities customers actually search for.
+            </h2>
+            <p className="mt-4 max-w-2xl text-slate-600">
+              Customers in Toronto, Ottawa, Kingston, and other Ontario cities need to know right away
+              that you can handle their route. We support condo moves, household moves, office
+              relocations, and longer intercity moves across the province.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {serviceRoutes.map((route) => (
+                <div key={route} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                  <p className="text-sm font-semibold text-slate-900">{route}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm sm:p-8">
+            <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Popular Cities We Serve</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              {site.primaryCities.map((city) => (
+                <span
+                  key={city}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm"
+                >
+                  {city}
+                </span>
+              ))}
+            </div>
+            <div className="mt-8 rounded-2xl bg-white p-5">
+              <p className="text-sm font-semibold text-slate-900">Need a route outside this list?</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                We also handle custom Ontario routes beyond these featured cities. Use the booking form to
+                price your distance and add move details for review.
+              </p>
+              <Link
+                href="/booking"
+                className="mt-4 inline-flex rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Check Your Route
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -114,7 +114,7 @@ export async function createBookingPdf(booking: PdfBooking) {
     y -= 6;
   }
 
-  line(`Contact: ${site.phone} | ${site.email}`, { size: 10 });
+  line(`Contact: ${site.phone} | ${site.publicEmail}`, { size: 10 });
 
   return pdf.save();
 }

@@ -219,7 +219,7 @@ export function buildBookingConfirmationEmail(
         : `<p>Online rescheduling is unlocked ${RESCHEDULE_WAIT_DAYS} days after the original booking date. Contact us directly if you need to change the date sooner.</p>`
     }
     <hr/>
-    <p>Questions? Reply to this email or contact ${escapeHtml(site.name)} at <a href="mailto:${escapeHtml(site.email)}">${escapeHtml(site.email)}</a>.</p>
+    <p>Questions? Reply to this email or contact ${escapeHtml(site.name)} at <a href="mailto:${escapeHtml(site.publicEmail)}">${escapeHtml(site.publicEmail)}</a>.</p>
   `;
 }
 

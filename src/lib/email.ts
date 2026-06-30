@@ -64,7 +64,7 @@ export async function sendOwnerEmail({
   replyTo,
 }: Omit<EmailPayload, "to">): Promise<{ delivered: boolean; reason?: string }> {
   return sendEmail({
-    to: process.env.NOTIFY_EMAIL || site.email,
+    to: process.env.NOTIFY_EMAIL || site.operationsEmail,
     subject,
     html,
     replyTo,

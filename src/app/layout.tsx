@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   keywords: [
     "movers Ontario",
     "moving company Toronto",
+    "movers Ottawa",
+    "movers Kingston",
     "long distance movers Ontario",
     "local moving service",
     "moving quote Ontario",
@@ -57,7 +59,7 @@ const jsonLd = {
   image: `${site.url}/logo-surftmove-red.png`,
   url: site.url,
   telephone: site.phone,
-  email: site.email,
+  email: site.publicEmail,
   address: {
     "@type": "PostalAddress",
     addressRegion: "ON",
