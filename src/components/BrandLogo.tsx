@@ -9,18 +9,14 @@ type BrandLogoProps = {
 export default function BrandLogo({ priority = false, variant = "default" }: BrandLogoProps) {
   const image = (
     <Image
-      src="/logo-surftmove.png"
+      src="/logo-surftmove-red.png"
       alt={`${site.name} logo`}
-      width={1263}
-      height={848}
+      width={1881}
+      height={836}
       priority={priority}
-      className={variant === "footer" ? "h-auto w-[170px] sm:w-[210px]" : "h-auto w-[155px] sm:w-[185px]"}
+      className={variant === "footer" ? "h-auto w-[180px] sm:w-[220px]" : "h-auto w-[145px] sm:w-[175px]"}
     />
   );
-
-  if (variant === "footer") {
-    return <span className="inline-flex rounded-2xl bg-white px-3 py-2 shadow-sm">{image}</span>;
-  }
 
   return image;
 }
