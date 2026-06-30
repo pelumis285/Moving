@@ -76,6 +76,39 @@ export const LOAD_SIZES: LoadSizeOption[] = [
 export const PER_KM_RATE = 1.85; // fuel + travel per km
 export const FREE_KM = 25; // first 25 km included
 export const HST_RATE = 0.13; // Ontario HST
+export const FRAGILE_ITEM_SURCHARGE = 14;
+export const HEAVY_ITEM_SURCHARGE = 35;
+export const STAIR_FLIGHT_SURCHARGE = 18;
+export const PACKING_HELP_SURCHARGE = 140;
+export const ASSEMBLY_HELP_SURCHARGE = 95;
+
+export type LongCarryKey = "standard" | "medium" | "long";
+
+export const LONG_CARRY_OPTIONS: Array<{
+  key: LongCarryKey;
+  label: string;
+  description: string;
+  surcharge: number;
+}> = [
+  {
+    key: "standard",
+    label: "Standard access",
+    description: "Normal curb-to-door access with a short walking distance.",
+    surcharge: 0,
+  },
+  {
+    key: "medium",
+    label: "Medium long carry",
+    description: "Some extra walking distance from truck to entrance.",
+    surcharge: 45,
+  },
+  {
+    key: "long",
+    label: "Long carry",
+    description: "A long carry or difficult access that adds extra handling time.",
+    surcharge: 90,
+  },
+];
 
 export type PriceBreakdown = {
   loadLabel: string;
@@ -90,6 +123,58 @@ export type PriceBreakdown = {
   hst: number;
   total: number;
 };
+
+export type DetailedQuoteOptions = {
+  fragileItems: number;
+  heavyItems: number;
+  stairFlights: number;
+  elevatorAccess: boolean;
+  packingHelp: boolean;
+  assemblyHelp: boolean;
+  longCarry: LongCarryKey;
+};
+
+type DetailedQuoteOptionsInput = Partial<Omit<DetailedQuoteOptions, "longCarry">> & {
+  longCarry?: string | null;
+};
+
+export type QuoteAdjustment = {
+  label: string;
+  amount: number;
+};
+
+export type DetailedPriceBreakdown = PriceBreakdown & {
+  adjustments: QuoteAdjustment[];
+  adjustmentsTotal: number;
+};
+
+function roundMoney(amount: number) {
+  return Math.round(amount * 100) / 100;
+}
+
+function normalizeCount(value: unknown) {
+  return Math.max(0, Math.round(Number(value) || 0));
+}
+
+export function normalizeLongCarry(value: string | null | undefined): LongCarryKey {
+  return LONG_CARRY_OPTIONS.some((option) => option.key === value) ? (value as LongCarryKey) : "standard";
+}
+
+export function getLongCarryLabel(value: string | null | undefined) {
+  return LONG_CARRY_OPTIONS.find((option) => option.key === normalizeLongCarry(value))?.label ?? "Standard access";
+}
+
+export function normalizeDetailedQuoteOptions(input: DetailedQuoteOptionsInput | null | undefined): DetailedQuoteOptions {
+  return {
+    fragileItems: normalizeCount(input?.fragileItems),
+    heavyItems: normalizeCount(input?.heavyItems),
+    stairFlights: normalizeCount(input?.stairFlights),
+    elevatorAccess: Boolean(input?.elevatorAccess),
+    packingHelp: Boolean(input?.packingHelp),
+    assemblyHelp: Boolean(input?.assemblyHelp),
+    longCarry: normalizeLongCarry(input?.longCarry),
+  };
+}
 
 export function calculatePrice(loadKey: string, distanceKm: number): PriceBreakdown | null {
   const load = LOAD_SIZES.find((l) => l.key === loadKey);
@@ -112,6 +197,75 @@ export function calculatePrice(loadKey: string, distanceKm: number): PriceBreakd
     hourlyRate: load.hourlyRate,
     billableKm,
     travelCost,
+    subtotal,
+    hst,
+    total,
+  };
+}
+
+export function calculateDetailedPrice(
+  loadKey: string,
+  distanceKm: number,
+  optionsInput?: DetailedQuoteOptionsInput | null,
+): DetailedPriceBreakdown | null {
+  const baseQuote = calculatePrice(loadKey, distanceKm);
+  if (!baseQuote) return null;
+
+  const options = normalizeDetailedQuoteOptions(optionsInput);
+  const longCarry = LONG_CARRY_OPTIONS.find((option) => option.key === options.longCarry) ?? LONG_CARRY_OPTIONS[0];
+  const adjustments: QuoteAdjustment[] = [];
+
+  if (options.fragileItems > 0) {
+    adjustments.push({
+      label: `Fragile handling (${options.fragileItems} item${options.fragileItems === 1 ? "" : "s"})`,
+      amount: roundMoney(options.fragileItems * FRAGILE_ITEM_SURCHARGE),
+    });
+  }
+
+  if (options.heavyItems > 0) {
+    adjustments.push({
+      label: `Heavy / oversized pieces (${options.heavyItems})`,
+      amount: roundMoney(options.heavyItems * HEAVY_ITEM_SURCHARGE),
+    });
+  }
+
+  if (options.stairFlights > 0) {
+    adjustments.push({
+      label: `Stair access (${options.stairFlights} flight${options.stairFlights === 1 ? "" : "s"})`,
+      amount: roundMoney(options.stairFlights * STAIR_FLIGHT_SURCHARGE),
+    });
+  }
+
+  if (longCarry.surcharge > 0) {
+    adjustments.push({
+      label: longCarry.label,
+      amount: roundMoney(longCarry.surcharge),
+    });
+  }
+
+  if (options.packingHelp) {
+    adjustments.push({
+      label: "Packing assistance",
+      amount: roundMoney(PACKING_HELP_SURCHARGE),
+    });
+  }
+
+  if (options.assemblyHelp) {
+    adjustments.push({
+      label: "Furniture assembly help",
+      amount: roundMoney(ASSEMBLY_HELP_SURCHARGE),
+    });
+  }
+
+  const adjustmentsTotal = roundMoney(adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0));
+  const subtotal = roundMoney(baseQuote.subtotal + adjustmentsTotal);
+  const hst = roundMoney(subtotal * HST_RATE);
+  const total = roundMoney(subtotal + hst);
+
+  return {
+    ...baseQuote,
+    adjustments,
+    adjustmentsTotal,
     subtotal,
     hst,
     total,

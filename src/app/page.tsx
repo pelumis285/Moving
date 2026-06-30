@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import ReviewsSection from "@/components/ReviewsSection";
 import { site } from "@/lib/site";
 import { LOAD_SIZES, formatCAD } from "@/lib/pricing";
 
@@ -192,6 +193,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <ReviewsSection />
 
       {/* CTA */}
       <section className="bg-red-600">

@@ -5,7 +5,7 @@ import { site } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Book Your Move",
   description:
-    "Book your move with Surftmove. Enter your origin, destination, load size, and date to request a booking and get an instant estimate.",
+    "Book your move with Surftmove. Request a standard booking or add custom quote details like fragile items, heavy pieces, and budget notes before your move is confirmed.",
   alternates: { canonical: "/booking" },
 };
 
@@ -16,7 +16,8 @@ export default function BookingPage() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <h1 className="text-3xl font-extrabold text-white sm:text-4xl">Book Your Move</h1>
           <p className="mt-3 text-slate-300">
-            Tell us about your move and we&apos;ll confirm your booking and final quote. Need help? Call{" "}
+            Tell us about your move and we&apos;ll review your booking, custom quote details, and final
+            pricing before confirmation. Need help? Call{" "}
             <a href={site.phoneHref} className="font-semibold text-white underline">
               {site.phone}
             </a>

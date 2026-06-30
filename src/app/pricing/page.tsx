@@ -45,6 +45,39 @@ export default function PricingPage() {
         <PricingCalculator />
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 lg:pb-16">
+        <div className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-[1.2fr_0.8fr] md:p-8">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-red-600">Alternative Quote Section</p>
+            <h2 className="mt-3 text-2xl font-bold text-slate-900 sm:text-3xl">
+              Need a more tailored quote than the instant calculator?
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              On the booking page you can now add specific price-driving details like fragile item counts,
+              heavy or oversized pieces, stair access, packing help, long-carry access, and your target
+              budget. There is also room to explain where you want us to negotiate the quote.
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-slate-50 p-5">
+            <h3 className="text-lg font-semibold text-slate-900">Good for moves with:</h3>
+            <ul className="mt-4 space-y-2 text-sm text-slate-600">
+              <li>Fragile items or specialty handling</li>
+              <li>Heavy furniture or oversized appliances</li>
+              <li>Extra stairs, difficult access, or long carries</li>
+              <li>Packing help or furniture assembly needs</li>
+              <li>A budget range you want us to work around</li>
+            </ul>
+            <Link
+              href="/booking#custom-quote"
+              className="mt-5 inline-flex rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              Open Custom Quote Form
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Rate table */}
       <section className="bg-slate-50">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">

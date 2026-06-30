@@ -12,7 +12,7 @@ export default function AdminPage() {
       <div className="max-w-3xl">
         <h1 className="text-3xl font-extrabold text-slate-900 sm:text-4xl">Admin Dashboard</h1>
         <p className="mt-3 text-slate-600">
-          Review new bookings, confirm moves, download booking PDFs, and send customers their
+          Review new bookings, approve customer reviews, download booking PDFs, and send customers their
           confirmation details from one place.
         </p>
       </div>

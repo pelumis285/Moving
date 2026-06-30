@@ -1,7 +1,12 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { Booking } from "@/db/schema";
-import { formatDateTime, formatMoveDate, getEffectiveBillAmount } from "@/lib/bookings";
-import { calculatePrice, formatCAD } from "@/lib/pricing";
+import {
+  formatDateTime,
+  formatMoveDate,
+  getEffectiveBillAmount,
+  getQuoteDetailsList,
+} from "@/lib/bookings";
+import { calculateDetailedPrice, formatCAD } from "@/lib/pricing";
 import { site } from "@/lib/site";
 
 type PdfBooking = Pick<
@@ -15,8 +20,17 @@ type PdfBooking = Pick<
   | "loadSize"
   | "moveDate"
   | "distanceKm"
+  | "fragileItems"
+  | "heavyItems"
+  | "stairFlights"
+  | "elevatorAccess"
+  | "packingHelp"
+  | "assemblyHelp"
+  | "longCarry"
   | "estimatedCost"
   | "finalCost"
+  | "targetBudget"
+  | "negotiationNotes"
   | "notes"
   | "adminNotes"
   | "status"
@@ -63,7 +77,7 @@ export async function createBookingPdf(booking: PdfBooking) {
   line(`Destination: ${booking.destination}`);
   line(`Distance: ${booking.distanceKm ?? 0} km`);
 
-  const pricing = calculatePrice(booking.loadSize, booking.distanceKm ?? 0);
+  const pricing = calculateDetailedPrice(booking.loadSize, booking.distanceKm ?? 0, booking);
   if (pricing) {
     line(`Load size: ${pricing.loadLabel}`);
     line(`Estimated quote: ${formatCAD(Number(booking.estimatedCost) || 0)}`);
@@ -72,6 +86,15 @@ export async function createBookingPdf(booking: PdfBooking) {
   }
   line(`Final bill: ${formatCAD(getEffectiveBillAmount(booking))}`);
   y -= 6;
+
+  const quoteDetails = getQuoteDetailsList(booking, { includeNegotiation: true });
+  if (quoteDetails.length > 0) {
+    line("Custom quote details", { bold: true });
+    for (const detail of quoteDetails) {
+      line(`${detail.label}: ${detail.value}`);
+    }
+    y -= 6;
+  }
 
   if (booking.notes) {
     line("Customer notes", { bold: true });

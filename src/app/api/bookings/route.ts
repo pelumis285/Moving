@@ -1,7 +1,8 @@
 import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
-import { calculatePrice, formatCAD } from "@/lib/pricing";
+import { getQuoteDetailsList, parseMoney } from "@/lib/bookings";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
+import { calculateDetailedPrice, formatCAD, normalizeLongCarry } from "@/lib/pricing";
 import { site } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,15 @@ type Body = {
   loadSize?: string;
   moveDate?: string;
   distanceKm?: number;
+  fragileItems?: number;
+  heavyItems?: number;
+  stairFlights?: number;
+  elevatorAccess?: boolean;
+  packingHelp?: boolean;
+  assemblyHelp?: boolean;
+  longCarry?: string;
+  targetBudget?: number | string;
+  negotiationNotes?: string;
   notes?: string;
 };
 
@@ -39,6 +49,15 @@ export async function POST(request: Request) {
   const moveDate = (body.moveDate ?? "").trim();
   const notes = (body.notes ?? "").trim();
   const distanceKm = Math.max(0, Math.round(Number(body.distanceKm) || 0));
+  const fragileItems = Math.max(0, Math.round(Number(body.fragileItems) || 0));
+  const heavyItems = Math.max(0, Math.round(Number(body.heavyItems) || 0));
+  const stairFlights = Math.max(0, Math.round(Number(body.stairFlights) || 0));
+  const elevatorAccess = Boolean(body.elevatorAccess);
+  const packingHelp = Boolean(body.packingHelp);
+  const assemblyHelp = Boolean(body.assemblyHelp);
+  const longCarry = normalizeLongCarry(body.longCarry ?? "");
+  const targetBudget = parseMoney(body.targetBudget);
+  const negotiationNotes = (body.negotiationNotes ?? "").trim();
 
   const errors: string[] = [];
   if (fullName.length < 2) errors.push("Full name is required.");
@@ -53,7 +72,15 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: errors.join(" ") }, { status: 400 });
   }
 
-  const quote = calculatePrice(loadSize, distanceKm);
+  const quote = calculateDetailedPrice(loadSize, distanceKm, {
+    fragileItems,
+    heavyItems,
+    stairFlights,
+    elevatorAccess,
+    packingHelp,
+    assemblyHelp,
+    longCarry,
+  });
   const estimatedCost = quote ? quote.total : 0;
 
   if (!isDatabaseConfigured()) {
@@ -76,7 +103,16 @@ export async function POST(request: Request) {
         loadSize,
         moveDate,
         distanceKm,
+        fragileItems,
+        heavyItems,
+        stairFlights,
+        elevatorAccess,
+        packingHelp,
+        assemblyHelp,
+        longCarry,
         estimatedCost: String(estimatedCost),
+        targetBudget: targetBudget != null ? String(targetBudget) : null,
+        negotiationNotes: negotiationNotes || null,
         notes: notes || null,
       })
       .returning({ id: bookings.id });
@@ -84,6 +120,23 @@ export async function POST(request: Request) {
     console.error("[bookings] db insert failed:", err);
     return Response.json({ ok: false, error: "Could not save your booking. Please try again." }, { status: 500 });
   }
+
+  const quoteDetailsHtml = getQuoteDetailsList(
+    {
+      fragileItems,
+      heavyItems,
+      stairFlights,
+      elevatorAccess,
+      packingHelp,
+      assemblyHelp,
+      longCarry,
+      targetBudget,
+      negotiationNotes,
+    },
+    { includeNegotiation: true },
+  )
+    .map((detail) => `<p><strong>${escapeHtml(detail.label)}:</strong> ${escapeHtml(detail.value)}</p>`)
+    .join("");
 
   const html = `
     <h2>New Move Booking Request #${inserted?.id ?? ""}</h2>
@@ -96,6 +149,7 @@ export async function POST(request: Request) {
     <p><strong>Move date:</strong> ${escapeHtml(moveDate)}</p>
     <p><strong>Distance:</strong> ${distanceKm} km</p>
     <p><strong>Estimated total:</strong> ${formatCAD(estimatedCost)} (incl. HST)</p>
+    ${quoteDetailsHtml ? `<h3>Quote factors</h3>${quoteDetailsHtml}` : ""}
     ${notes ? `<p><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
     <hr/>
     <p>Sent from ${site.name} booking form.</p>

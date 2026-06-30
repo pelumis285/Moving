@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import type { Booking } from "@/db/schema";
 import { escapeHtml } from "@/lib/email";
-import { FREE_KM, calculatePrice, formatCAD } from "@/lib/pricing";
+import { calculateDetailedPrice, formatCAD, getLongCarryLabel } from "@/lib/pricing";
 import { site } from "@/lib/site";
 
 export const RESCHEDULE_WAIT_DAYS = 3;
@@ -18,8 +18,17 @@ type BookingEmailShape = Pick<
   | "loadSize"
   | "moveDate"
   | "distanceKm"
+  | "fragileItems"
+  | "heavyItems"
+  | "stairFlights"
+  | "elevatorAccess"
+  | "packingHelp"
+  | "assemblyHelp"
+  | "longCarry"
   | "estimatedCost"
   | "finalCost"
+  | "targetBudget"
+  | "negotiationNotes"
   | "notes"
   | "adminNotes"
   | "createdAt"
@@ -87,12 +96,70 @@ export function getEffectiveBillAmount(booking: Pick<Booking, "estimatedCost" | 
   return parseMoney(booking.finalCost) ?? parseMoney(booking.estimatedCost) ?? 0;
 }
 
+type QuoteDetailsInput = {
+  fragileItems: number;
+  heavyItems: number;
+  stairFlights: number;
+  elevatorAccess: boolean;
+  packingHelp: boolean;
+  assemblyHelp: boolean;
+  longCarry: string | null | undefined;
+  targetBudget: string | number | null | undefined;
+  negotiationNotes: string | null | undefined;
+};
+
+export function getQuoteDetailsList(
+  booking: QuoteDetailsInput,
+  options?: { includeNegotiation?: boolean },
+) {
+  const details: Array<{ label: string; value: string }> = [];
+
+  if (booking.fragileItems > 0) {
+    details.push({ label: "Fragile items", value: String(booking.fragileItems) });
+  }
+
+  if (booking.heavyItems > 0) {
+    details.push({ label: "Heavy / oversized items", value: String(booking.heavyItems) });
+  }
+
+  if (booking.stairFlights > 0) {
+    details.push({ label: "Stair flights", value: String(booking.stairFlights) });
+  }
+
+  if (booking.elevatorAccess) {
+    details.push({ label: "Elevator access", value: "Available" });
+  }
+
+  if (booking.packingHelp) {
+    details.push({ label: "Packing help", value: "Requested" });
+  }
+
+  if (booking.assemblyHelp) {
+    details.push({ label: "Furniture assembly", value: "Requested" });
+  }
+
+  if (booking.longCarry !== "standard") {
+    details.push({ label: "Access type", value: getLongCarryLabel(booking.longCarry) });
+  }
+
+  const targetBudget = parseMoney(booking.targetBudget);
+  if (options?.includeNegotiation && targetBudget != null) {
+    details.push({ label: "Target budget", value: formatCAD(targetBudget) });
+  }
+
+  if (options?.includeNegotiation && booking.negotiationNotes) {
+    details.push({ label: "Negotiation request", value: booking.negotiationNotes });
+  }
+
+  return details;
+}
+
 function detailRow(label: string, value: string) {
   return `<p><strong>${escapeHtml(label)}:</strong> ${value}</p>`;
 }
 
 function buildBillingHtml(booking: BookingEmailShape) {
-  const quote = calculatePrice(booking.loadSize, booking.distanceKm ?? 0);
+  const quote = calculateDetailedPrice(booking.loadSize, booking.distanceKm ?? 0, booking);
   const finalAmount = getEffectiveBillAmount(booking);
   const totalKm = Math.max(0, Math.round(booking.distanceKm ?? 0));
   const rows = [
@@ -103,6 +170,10 @@ function buildBillingHtml(booking: BookingEmailShape) {
   if (quote) {
     rows.push(detailRow("Load size", escapeHtml(quote.loadLabel)));
     rows.push(detailRow("Distance", `${totalKm} km total (${quote.billableKm} billable)`));
+  }
+
+  for (const detail of getQuoteDetailsList(booking)) {
+    rows.push(detailRow(detail.label, escapeHtml(detail.value)));
   }
 
   return rows.join("");
