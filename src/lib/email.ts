@@ -5,6 +5,10 @@ type EmailPayload = {
   subject: string;
   html: string;
   replyTo?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+  }>;
 };
 
 /**
@@ -15,7 +19,7 @@ type EmailPayload = {
  * When no API key is present the message is logged server-side so the app
  * keeps working in development / preview without external secrets.
  */
-export async function sendEmail({ to, subject, html, replyTo }: EmailPayload): Promise<{
+export async function sendEmail({ to, subject, html, replyTo, attachments }: EmailPayload): Promise<{
   delivered: boolean;
   reason?: string;
 }> {
@@ -24,7 +28,9 @@ export async function sendEmail({ to, subject, html, replyTo }: EmailPayload): P
 
   if (!apiKey) {
     console.info(
-      `[email] RESEND_API_KEY not set — would have emailed ${Array.isArray(to) ? to.join(", ") : to}:\nSubject: ${subject}\n${html}`,
+      `[email] RESEND_API_KEY not set — would have emailed ${Array.isArray(to) ? to.join(", ") : to}:\nSubject: ${subject}\nAttachments: ${
+        attachments?.map((attachment) => attachment.filename).join(", ") || "none"
+      }\n${html}`,
     );
     return { delivered: false, reason: "Email provider not configured" };
   }
@@ -42,6 +48,7 @@ export async function sendEmail({ to, subject, html, replyTo }: EmailPayload): P
         subject,
         html,
         ...(replyTo ? { reply_to: replyTo } : {}),
+        ...(attachments?.length ? { attachments } : {}),
       }),
     });
 
@@ -62,12 +69,14 @@ export async function sendOwnerEmail({
   subject,
   html,
   replyTo,
+  attachments,
 }: Omit<EmailPayload, "to">): Promise<{ delivered: boolean; reason?: string }> {
   return sendEmail({
     to: process.env.NOTIFY_EMAIL || site.operationsEmail,
     subject,
     html,
     replyTo,
+    attachments,
   });
 }
 

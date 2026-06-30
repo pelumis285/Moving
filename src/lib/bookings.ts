@@ -202,6 +202,7 @@ export function buildBookingConfirmationEmail(
 ) {
   return `
     <h2>Your move with ${escapeHtml(site.name)} has been confirmed</h2>
+    <p>Your booking confirmation PDF is attached to this email for your records.</p>
     ${detailRow("Booking reference", `#${booking.id}`)}
     ${detailRow("Customer", escapeHtml(booking.fullName))}
     ${detailRow("Move date", escapeHtml(formatMoveDate(booking.moveDate)))}

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
 import { requireAdminRequest } from "@/lib/admin";
-import { createBookingPdf } from "@/lib/pdf";
+import { createBookingPdf, getBookingPdfFilename } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="booking-${booking.id}.pdf"`,
+      "Content-Disposition": `attachment; filename="${getBookingPdfFilename(booking.id)}"`,
       "Cache-Control": "no-store",
     },
   });

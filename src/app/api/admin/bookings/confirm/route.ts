@@ -13,6 +13,7 @@ import {
   parseMoney,
 } from "@/lib/bookings";
 import { sendEmail } from "@/lib/email";
+import { createBookingPdf, getBookingPdfFilename } from "@/lib/pdf";
 import { site } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +86,12 @@ export async function POST(request: Request) {
     .where(eq(bookings.id, bookingId))
     .returning();
 
+  const bookingPdfBytes = await createBookingPdf(updated);
+  const bookingPdfAttachment = {
+    filename: getBookingPdfFilename(updated.id),
+    content: Buffer.from(bookingPdfBytes).toString("base64"),
+  };
+
   const emailResult = await sendEmail({
     to: updated.email,
     subject: `Your ${site.name} move is confirmed for ${formatMoveDate(updated.moveDate)}`,
@@ -92,6 +99,7 @@ export async function POST(request: Request) {
       rescheduleUrl: includeRescheduleLink ? getRescheduleUrl(rescheduleToken) : null,
     }),
     replyTo: process.env.NOTIFY_EMAIL || site.operationsEmail,
+    attachments: [bookingPdfAttachment],
   });
 
   return Response.json({

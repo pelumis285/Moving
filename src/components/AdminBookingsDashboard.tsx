@@ -249,7 +249,7 @@ export default function AdminBookingsDashboard() {
 
       setNotice(
         data.emailDelivered
-          ? `Booking #${bookingId} updated and confirmation email sent.`
+          ? `Booking #${bookingId} updated and confirmation email with PDF sent.`
           : `Booking #${bookingId} updated. Email delivery is not configured yet.`,
       );
       await loadDashboard(adminPassword);
@@ -281,7 +281,9 @@ export default function AdminBookingsDashboard() {
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = objectUrl;
-      anchor.download = `booking-${bookingId}.pdf`;
+      const contentDisposition = res.headers.get("content-disposition");
+      const match = contentDisposition?.match(/filename="([^"]+)"/i);
+      anchor.download = match?.[1] ?? `surftmove-booking-${String(bookingId).padStart(6, "0")}.pdf`;
       anchor.click();
       URL.revokeObjectURL(objectUrl);
     } catch (downloadError) {
