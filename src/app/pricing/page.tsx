@@ -54,8 +54,9 @@ export default function PricingPage() {
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
               On the booking page you can now add specific price-driving details like fragile item counts,
-              heavy or oversized pieces, stair access, packing help, long-carry access, and your target
-              budget. There is also room to explain where you want us to negotiate the quote.
+              heavy or oversized pieces, condo or storey-building pickup access, the floor we are carrying
+              from, stair access, packing help, long-carry access, and your target budget. There is also
+              room to explain where you want us to negotiate the quote.
             </p>
           </div>
 
@@ -64,6 +65,7 @@ export default function PricingPage() {
             <ul className="mt-4 space-y-2 text-sm text-slate-600">
               <li>Fragile items or specialty handling</li>
               <li>Heavy furniture or oversized appliances</li>
+              <li>Condos, walk-ups, or higher pickup floors</li>
               <li>Extra stairs, difficult access, or long carries</li>
               <li>Packing help or furniture assembly needs</li>
               <li>A budget range you want us to work around</li>

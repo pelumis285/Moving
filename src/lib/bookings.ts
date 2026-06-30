@@ -1,7 +1,12 @@
 import { randomBytes } from "crypto";
 import type { Booking } from "@/db/schema";
 import { escapeHtml } from "@/lib/email";
-import { calculateDetailedPrice, formatCAD, getLongCarryLabel } from "@/lib/pricing";
+import {
+  calculateDetailedPrice,
+  formatCAD,
+  getBuildingTypeLabel,
+  getLongCarryLabel,
+} from "@/lib/pricing";
 import { site } from "@/lib/site";
 
 export const RESCHEDULE_WAIT_DAYS = 3;
@@ -25,6 +30,8 @@ type BookingEmailShape = Pick<
   | "packingHelp"
   | "assemblyHelp"
   | "longCarry"
+  | "buildingType"
+  | "carryFloor"
   | "estimatedCost"
   | "finalCost"
   | "targetBudget"
@@ -104,6 +111,8 @@ type QuoteDetailsInput = {
   packingHelp: boolean;
   assemblyHelp: boolean;
   longCarry: string | null | undefined;
+  buildingType: string | null | undefined;
+  carryFloor: number;
   targetBudget: string | number | null | undefined;
   negotiationNotes: string | null | undefined;
 };
@@ -140,6 +149,14 @@ export function getQuoteDetailsList(
 
   if (booking.longCarry !== "standard") {
     details.push({ label: "Access type", value: getLongCarryLabel(booking.longCarry) });
+  }
+
+  if (booking.buildingType !== "house-ground") {
+    details.push({ label: "Pickup building type", value: getBuildingTypeLabel(booking.buildingType) });
+  }
+
+  if (booking.carryFloor > 0) {
+    details.push({ label: "Pickup floor", value: String(booking.carryFloor) });
   }
 
   const targetBudget = parseMoney(booking.targetBudget);

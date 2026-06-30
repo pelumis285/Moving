@@ -81,8 +81,11 @@ export const HEAVY_ITEM_SURCHARGE = 35;
 export const STAIR_FLIGHT_SURCHARGE = 18;
 export const PACKING_HELP_SURCHARGE = 140;
 export const ASSEMBLY_HELP_SURCHARGE = 95;
+export const CARRY_FLOOR_SURCHARGE = 16;
+export const ELEVATOR_FLOOR_SURCHARGE = 7;
 
 export type LongCarryKey = "standard" | "medium" | "long";
+export type BuildingTypeKey = "house-ground" | "condo" | "story-building";
 
 export const LONG_CARRY_OPTIONS: Array<{
   key: LongCarryKey;
@@ -110,6 +113,32 @@ export const LONG_CARRY_OPTIONS: Array<{
   },
 ];
 
+export const BUILDING_TYPE_OPTIONS: Array<{
+  key: BuildingTypeKey;
+  label: string;
+  description: string;
+  surcharge: number;
+}> = [
+  {
+    key: "house-ground",
+    label: "House / ground-level access",
+    description: "A standard home or ground-level move with simpler pickup access.",
+    surcharge: 0,
+  },
+  {
+    key: "condo",
+    label: "Condo / apartment",
+    description: "Condo or apartment access that may involve elevators, booking windows, or loading rules.",
+    surcharge: 32,
+  },
+  {
+    key: "story-building",
+    label: "Story building / walk-up",
+    description: "A multi-storey building or walk-up with more complicated carrying conditions.",
+    surcharge: 48,
+  },
+];
+
 export type PriceBreakdown = {
   loadLabel: string;
   baseFee: number;
@@ -132,10 +161,13 @@ export type DetailedQuoteOptions = {
   packingHelp: boolean;
   assemblyHelp: boolean;
   longCarry: LongCarryKey;
+  buildingType: BuildingTypeKey;
+  carryFloor: number;
 };
 
-type DetailedQuoteOptionsInput = Partial<Omit<DetailedQuoteOptions, "longCarry">> & {
+type DetailedQuoteOptionsInput = Partial<Omit<DetailedQuoteOptions, "longCarry" | "buildingType">> & {
   longCarry?: string | null;
+  buildingType?: string | null;
 };
 
 export type QuoteAdjustment = {
@@ -164,6 +196,19 @@ export function getLongCarryLabel(value: string | null | undefined) {
   return LONG_CARRY_OPTIONS.find((option) => option.key === normalizeLongCarry(value))?.label ?? "Standard access";
 }
 
+export function normalizeBuildingType(value: string | null | undefined): BuildingTypeKey {
+  return BUILDING_TYPE_OPTIONS.some((option) => option.key === value)
+    ? (value as BuildingTypeKey)
+    : "house-ground";
+}
+
+export function getBuildingTypeLabel(value: string | null | undefined) {
+  return (
+    BUILDING_TYPE_OPTIONS.find((option) => option.key === normalizeBuildingType(value))?.label ??
+    "House / ground-level access"
+  );
+}
+
 export function normalizeDetailedQuoteOptions(input: DetailedQuoteOptionsInput | null | undefined): DetailedQuoteOptions {
   return {
     fragileItems: normalizeCount(input?.fragileItems),
@@ -173,6 +218,8 @@ export function normalizeDetailedQuoteOptions(input: DetailedQuoteOptionsInput |
     packingHelp: Boolean(input?.packingHelp),
     assemblyHelp: Boolean(input?.assemblyHelp),
     longCarry: normalizeLongCarry(input?.longCarry),
+    buildingType: normalizeBuildingType(input?.buildingType),
+    carryFloor: normalizeCount(input?.carryFloor),
   };
 }
 
@@ -213,6 +260,8 @@ export function calculateDetailedPrice(
 
   const options = normalizeDetailedQuoteOptions(optionsInput);
   const longCarry = LONG_CARRY_OPTIONS.find((option) => option.key === options.longCarry) ?? LONG_CARRY_OPTIONS[0];
+  const buildingType =
+    BUILDING_TYPE_OPTIONS.find((option) => option.key === options.buildingType) ?? BUILDING_TYPE_OPTIONS[0];
   const adjustments: QuoteAdjustment[] = [];
 
   if (options.fragileItems > 0) {
@@ -240,6 +289,23 @@ export function calculateDetailedPrice(
     adjustments.push({
       label: longCarry.label,
       amount: roundMoney(longCarry.surcharge),
+    });
+  }
+
+  if (buildingType.surcharge > 0) {
+    adjustments.push({
+      label: buildingType.label,
+      amount: roundMoney(buildingType.surcharge),
+    });
+  }
+
+  if (options.carryFloor > 0) {
+    const perFloorRate = options.elevatorAccess ? ELEVATOR_FLOOR_SURCHARGE : CARRY_FLOOR_SURCHARGE;
+    adjustments.push({
+      label: options.elevatorAccess
+        ? `Pickup floor ${options.carryFloor} (elevator assisted)`
+        : `Pickup floor ${options.carryFloor}`,
+      amount: roundMoney(options.carryFloor * perFloorRate),
     });
   }
 

@@ -17,6 +17,8 @@ export const bookings = pgTable("bookings", {
   packingHelp: boolean("packing_help").default(false).notNull(),
   assemblyHelp: boolean("assembly_help").default(false).notNull(),
   longCarry: varchar("long_carry", { length: 20 }).default("standard").notNull(),
+  buildingType: varchar("building_type", { length: 30 }).default("house-ground").notNull(),
+  carryFloor: integer("carry_floor").default(0).notNull(),
   estimatedCost: numeric("estimated_cost", { precision: 10, scale: 2 }).default("0"),
   finalCost: numeric("final_cost", { precision: 10, scale: 2 }),
   targetBudget: numeric("target_budget", { precision: 10, scale: 2 }),

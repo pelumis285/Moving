@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getLongCarryLabel } from "@/lib/pricing";
+import { getBuildingTypeLabel, getLongCarryLabel } from "@/lib/pricing";
 
 type AdminBooking = {
   id: number;
@@ -20,6 +20,8 @@ type AdminBooking = {
   packingHelp: boolean;
   assemblyHelp: boolean;
   longCarry: string;
+  buildingType: string;
+  carryFloor: number;
   estimatedCost: string | null;
   finalCost: string | null;
   targetBudget: string | null;
@@ -511,6 +513,12 @@ export default function AdminBookingsDashboard() {
                         </p>
                         <p>
                           <strong>Access:</strong> {getLongCarryLabel(booking.longCarry)}
+                        </p>
+                        <p>
+                          <strong>Pickup building:</strong> {getBuildingTypeLabel(booking.buildingType)}
+                        </p>
+                        <p>
+                          <strong>Carry floor:</strong> {booking.carryFloor}
                         </p>
                         <p>
                           <strong>Elevator access:</strong> {booking.elevatorAccess ? "Yes" : "No"}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  BUILDING_TYPE_OPTIONS,
   LOAD_SIZES,
   LONG_CARRY_OPTIONS,
   calculateDetailedPrice,
@@ -30,6 +31,8 @@ const initialForm = {
   packingHelp: false,
   assemblyHelp: false,
   longCarry: "standard",
+  buildingType: "house-ground",
+  carryFloor: "0",
   targetBudget: "",
   negotiationNotes: "",
   notes: "",
@@ -53,6 +56,8 @@ export default function BookingForm() {
         packingHelp: form.packingHelp,
         assemblyHelp: form.assemblyHelp,
         longCarry: form.longCarry,
+        buildingType: form.buildingType,
+        carryFloor: Number(form.carryFloor) || 0,
       }),
     [form],
   );
@@ -80,6 +85,7 @@ export default function BookingForm() {
           fragileItems: Number(form.fragileItems) || 0,
           heavyItems: Number(form.heavyItems) || 0,
           stairFlights: Number(form.stairFlights) || 0,
+          carryFloor: Number(form.carryFloor) || 0,
         }),
       });
       const data = await res.json();
@@ -264,7 +270,7 @@ export default function BookingForm() {
             </p>
           </div>
 
-          <div className="mt-5 grid gap-5 sm:grid-cols-3">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className={labelClass} htmlFor="fragileItems">
                 Fragile item count
@@ -304,9 +310,47 @@ export default function BookingForm() {
                 onChange={(event) => updateText("stairFlights", event.target.value)}
               />
             </div>
+            <div>
+              <label className={labelClass} htmlFor="carryFloor">
+                Floor carrying from
+              </label>
+              <input
+                id="carryFloor"
+                type="number"
+                min={0}
+                className={inputClass}
+                value={form.carryFloor}
+                onChange={(event) => updateText("carryFloor", event.target.value)}
+                placeholder="0 for ground floor"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Use the floor number where the crew will pick items up from.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label className={labelClass} htmlFor="buildingType">
+                Pickup building type
+              </label>
+              <select
+                id="buildingType"
+                className={inputClass}
+                value={form.buildingType}
+                onChange={(event) => updateText("buildingType", event.target.value)}
+              >
+                {BUILDING_TYPE_OPTIONS.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                {BUILDING_TYPE_OPTIONS.find((option) => option.key === form.buildingType)?.description}
+              </p>
+            </div>
+
             <div>
               <label className={labelClass} htmlFor="longCarry">
                 Access / long carry

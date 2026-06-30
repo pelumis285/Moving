@@ -2,7 +2,12 @@ import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
 import { getQuoteDetailsList, parseMoney } from "@/lib/bookings";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
-import { calculateDetailedPrice, formatCAD, normalizeLongCarry } from "@/lib/pricing";
+import {
+  calculateDetailedPrice,
+  formatCAD,
+  normalizeBuildingType,
+  normalizeLongCarry,
+} from "@/lib/pricing";
 import { site } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +28,8 @@ type Body = {
   packingHelp?: boolean;
   assemblyHelp?: boolean;
   longCarry?: string;
+  buildingType?: string;
+  carryFloor?: number;
   targetBudget?: number | string;
   negotiationNotes?: string;
   notes?: string;
@@ -56,6 +63,8 @@ export async function POST(request: Request) {
   const packingHelp = Boolean(body.packingHelp);
   const assemblyHelp = Boolean(body.assemblyHelp);
   const longCarry = normalizeLongCarry(body.longCarry ?? "");
+  const buildingType = normalizeBuildingType(body.buildingType ?? "");
+  const carryFloor = Math.max(0, Math.round(Number(body.carryFloor) || 0));
   const targetBudget = parseMoney(body.targetBudget);
   const negotiationNotes = (body.negotiationNotes ?? "").trim();
 
@@ -80,6 +89,8 @@ export async function POST(request: Request) {
     packingHelp,
     assemblyHelp,
     longCarry,
+    buildingType,
+    carryFloor,
   });
   const estimatedCost = quote ? quote.total : 0;
 
@@ -110,6 +121,8 @@ export async function POST(request: Request) {
         packingHelp,
         assemblyHelp,
         longCarry,
+        buildingType,
+        carryFloor,
         estimatedCost: String(estimatedCost),
         targetBudget: targetBudget != null ? String(targetBudget) : null,
         negotiationNotes: negotiationNotes || null,
@@ -130,6 +143,8 @@ export async function POST(request: Request) {
       packingHelp,
       assemblyHelp,
       longCarry,
+      buildingType,
+      carryFloor,
       targetBudget,
       negotiationNotes,
     },

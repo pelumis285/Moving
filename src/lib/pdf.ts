@@ -27,6 +27,8 @@ type PdfBooking = Pick<
   | "packingHelp"
   | "assemblyHelp"
   | "longCarry"
+  | "buildingType"
+  | "carryFloor"
   | "estimatedCost"
   | "finalCost"
   | "targetBudget"
