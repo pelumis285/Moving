@@ -53,8 +53,8 @@ const serviceRoutes = [
 ];
 
 const heroImage = {
-  src: "https://images.pexels.com/photos/7464244/pexels-photo-7464244.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1600",
-  alt: "Professional movers carrying boxes into a bright new home in Ontario",
+  src: "/surftmove-crew-hero.jpg",
+  alt: "Surftmove movers carrying branded moving boxes inside a bright home",
 };
 
 export default function HomePage() {
@@ -68,7 +68,7 @@ export default function HomePage() {
           fill
           priority
           sizes="100vw"
-          className="object-cover opacity-30"
+          className="object-cover opacity-35"
         />
         <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:py-32">
           <div className="max-w-2xl">
