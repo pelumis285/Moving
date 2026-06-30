@@ -35,8 +35,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/logo-surftmove-red.png",
-        width: 1881,
-        height: 836,
+        width: 906,
+        height: 276,
         alt: `${site.name} logo`,
       },
     ],
