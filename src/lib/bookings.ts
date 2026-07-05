@@ -1,5 +1,7 @@
 import { randomBytes } from "crypto";
-import type { Booking } from "@/db/schema";
+import { and, eq, ne } from "drizzle-orm";
+import { getDb } from "@/db";
+import { bookings, type Booking } from "@/db/schema";
 import { escapeHtml } from "@/lib/email";
 import {
   calculateDetailedPrice,
@@ -49,6 +51,47 @@ export function normalizeMoveDate(value: string) {
   if (Number.isNaN(date.getTime())) return null;
 
   return normalized;
+}
+
+export async function findBookingDateConflict(moveDate: string, options?: { excludeBookingId?: number }) {
+  const excludeBookingId = options?.excludeBookingId;
+  const whereClause =
+    typeof excludeBookingId === "number" && excludeBookingId > 0
+      ? and(eq(bookings.moveDate, moveDate), ne(bookings.id, excludeBookingId))
+      : eq(bookings.moveDate, moveDate);
+
+  const [conflict] = await getDb()
+    .select({
+      id: bookings.id,
+      fullName: bookings.fullName,
+      moveDate: bookings.moveDate,
+      status: bookings.status,
+    })
+    .from(bookings)
+    .where(whereClause)
+    .limit(1);
+
+  return conflict ?? null;
+}
+
+export function buildMoveDateConflictMessage(moveDate: string) {
+  return `Sorry, ${formatMoveDate(moveDate)} is already booked. Please choose a different moving date.`;
+}
+
+export function isMoveDateConflictError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const maybeDatabaseError = error as {
+    code?: string;
+    constraint?: string;
+    detail?: string;
+  };
+
+  return (
+    maybeDatabaseError.code === "23505" &&
+    (maybeDatabaseError.constraint === "bookings_move_date_unique" ||
+      maybeDatabaseError.detail?.includes("(move_date)") === true)
+  );
 }
 
 export function formatMoveDate(value: string) {

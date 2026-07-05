@@ -1,6 +1,13 @@
 import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
-import { getQuoteDetailsList, parseMoney } from "@/lib/bookings";
+import {
+  buildMoveDateConflictMessage,
+  findBookingDateConflict,
+  getQuoteDetailsList,
+  isMoveDateConflictError,
+  normalizeMoveDate,
+  parseMoney,
+} from "@/lib/bookings";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
 import {
   calculateDetailedPrice,
@@ -53,7 +60,8 @@ export async function POST(request: Request) {
   const origin = (body.origin ?? "").trim();
   const destination = (body.destination ?? "").trim();
   const loadSize = (body.loadSize ?? "").trim();
-  const moveDate = (body.moveDate ?? "").trim();
+  const requestedMoveDate = (body.moveDate ?? "").trim();
+  const normalizedMoveDate = normalizeMoveDate(requestedMoveDate);
   const notes = (body.notes ?? "").trim();
   const distanceKm = Math.max(0, Math.round(Number(body.distanceKm) || 0));
   const fragileItems = Math.max(0, Math.round(Number(body.fragileItems) || 0));
@@ -75,11 +83,14 @@ export async function POST(request: Request) {
   if (!origin) errors.push("Origin address is required.");
   if (!destination) errors.push("Destination address is required.");
   if (!loadSize) errors.push("Load size is required.");
-  if (!moveDate) errors.push("Move date is required.");
+  if (!requestedMoveDate) errors.push("Move date is required.");
+  if (requestedMoveDate && !normalizedMoveDate) errors.push("A valid move date is required.");
 
   if (errors.length > 0) {
     return Response.json({ ok: false, error: errors.join(" ") }, { status: 400 });
   }
+
+  const moveDate = normalizedMoveDate!;
 
   const quote = calculateDetailedPrice(loadSize, distanceKm, {
     fragileItems,
@@ -98,6 +109,14 @@ export async function POST(request: Request) {
     return Response.json(
       { ok: false, error: "Booking service is not configured yet. Please try again later." },
       { status: 503 },
+    );
+  }
+
+  const conflictingBooking = await findBookingDateConflict(moveDate);
+  if (conflictingBooking) {
+    return Response.json(
+      { ok: false, error: buildMoveDateConflictMessage(moveDate) },
+      { status: 409 },
     );
   }
 
@@ -130,6 +149,13 @@ export async function POST(request: Request) {
       })
       .returning({ id: bookings.id });
   } catch (err) {
+    if (isMoveDateConflictError(err)) {
+      return Response.json(
+        { ok: false, error: buildMoveDateConflictMessage(moveDate) },
+        { status: 409 },
+      );
+    }
+
     console.error("[bookings] db insert failed:", err);
     return Response.json({ ok: false, error: "Could not save your booking. Please try again." }, { status: 500 });
   }

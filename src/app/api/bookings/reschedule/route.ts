@@ -2,11 +2,14 @@ import { eq } from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
 import {
+  buildMoveDateConflictMessage,
   buildCustomerRescheduleEmail,
   buildOwnerRescheduleNoticeEmail,
   canOfferRescheduleLink,
+  findBookingDateConflict,
   formatMoveDate,
   getEffectiveBillAmount,
+  isMoveDateConflictError,
   normalizeMoveDate,
 } from "@/lib/bookings";
 import { sendEmail, sendOwnerEmail } from "@/lib/email";
@@ -91,16 +94,37 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "This reschedule link is invalid or expired." }, { status: 404 });
   }
 
+  const conflictingBooking = await findBookingDateConflict(moveDate, { excludeBookingId: booking.id });
+  if (conflictingBooking) {
+    return Response.json(
+      { ok: false, error: buildMoveDateConflictMessage(moveDate) },
+      { status: 409 },
+    );
+  }
+
   const previousMoveDate = booking.moveDate;
-  const [updated] = await getDb()
-    .update(bookings)
-    .set({
-      moveDate,
-      status: "rescheduled",
-      lastRescheduledAt: new Date(),
-    })
-    .where(eq(bookings.id, booking.id))
-    .returning();
+  let updated;
+  try {
+    [updated] = await getDb()
+      .update(bookings)
+      .set({
+        moveDate,
+        status: "rescheduled",
+        lastRescheduledAt: new Date(),
+      })
+      .where(eq(bookings.id, booking.id))
+      .returning();
+  } catch (error) {
+    if (isMoveDateConflictError(error)) {
+      return Response.json(
+        { ok: false, error: buildMoveDateConflictMessage(moveDate) },
+        { status: 409 },
+      );
+    }
+
+    console.error("[bookings/reschedule] db update failed:", error);
+    return Response.json({ ok: false, error: "Could not update the moving date." }, { status: 500 });
+  }
 
   const customerEmail = await sendEmail({
     to: updated.email,
