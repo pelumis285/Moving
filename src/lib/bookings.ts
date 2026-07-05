@@ -12,7 +12,8 @@ import {
 import { site } from "@/lib/site";
 
 export const RESCHEDULE_WAIT_DAYS = 3;
-export const RESCHEDULE_TOKEN_TTL_DAYS = 30;
+export const RESCHEDULE_WINDOW_DAYS = 3;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 type BookingEmailShape = Pick<
   Booking,
@@ -119,12 +120,20 @@ export function createRescheduleToken() {
   return randomBytes(24).toString("hex");
 }
 
-export function getRescheduleTokenExpiry(from = new Date()) {
-  return new Date(from.getTime() + RESCHEDULE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+export function getRescheduleUnlockAt(createdAt: Date) {
+  return new Date(createdAt.getTime() + RESCHEDULE_WAIT_DAYS * DAY_IN_MS);
+}
+
+export function getRescheduleTokenExpiry(createdAt: Date) {
+  return new Date(getRescheduleUnlockAt(createdAt).getTime() + RESCHEDULE_WINDOW_DAYS * DAY_IN_MS);
+}
+
+export function isRescheduleWindowExpired(createdAt: Date, now = new Date()) {
+  return now.getTime() >= getRescheduleTokenExpiry(createdAt).getTime();
 }
 
 export function canOfferRescheduleLink(createdAt: Date, now = new Date()) {
-  return now.getTime() >= createdAt.getTime() + RESCHEDULE_WAIT_DAYS * 24 * 60 * 60 * 1000;
+  return now.getTime() >= getRescheduleUnlockAt(createdAt).getTime() && !isRescheduleWindowExpired(createdAt, now);
 }
 
 export function getRescheduleUrl(token: string) {
@@ -240,7 +249,13 @@ function buildBillingHtml(booking: BookingEmailShape) {
 
 export function buildBookingConfirmationEmail(
   booking: BookingEmailShape,
-  options: { rescheduleUrl?: string | null },
+  options: {
+    rescheduleUrl?: string | null;
+    rescheduleUnlockAt: Date;
+    rescheduleExpiresAt: Date;
+    rescheduleWindowOpen: boolean;
+    rescheduleWindowExpired: boolean;
+  },
 ) {
   return `
     <h2>Your move with ${escapeHtml(site.name)} has been confirmed</h2>
@@ -256,10 +271,26 @@ export function buildBookingConfirmationEmail(
     ${buildBillingHtml(booking)}
     ${booking.notes ? detailRow("Customer notes", escapeHtml(booking.notes).replace(/\n/g, "<br/>")) : ""}
     ${booking.adminNotes ? detailRow("Admin notes", escapeHtml(booking.adminNotes).replace(/\n/g, "<br/>")) : ""}
+    <hr/>
+    <h3>Rescheduling policy</h3>
+    <p>Your rescheduling link is included below for convenience.</p>
+    <p>
+      It will unlock <strong>${RESCHEDULE_WAIT_DAYS} days after your original booking was created</strong>,
+      on ${escapeHtml(formatDateTime(options.rescheduleUnlockAt))}.
+      Once it unlocks, it will stay valid for <strong>${RESCHEDULE_WINDOW_DAYS} days</strong> and expire on
+      ${escapeHtml(formatDateTime(options.rescheduleExpiresAt))}.
+    </p>
+    ${
+      options.rescheduleWindowExpired
+        ? `<p>This rescheduling window has already expired. Please contact ${escapeHtml(site.name)} directly if you still need help changing your moving date.</p>`
+        : options.rescheduleWindowOpen
+          ? `<p>Your rescheduling window is currently open. You can use this link until ${escapeHtml(formatDateTime(options.rescheduleExpiresAt))}.</p>`
+          : `<p>This link is attached now, but it will not work until ${escapeHtml(formatDateTime(options.rescheduleUnlockAt))}.</p>`
+    }
     ${
       options.rescheduleUrl
-        ? `<p>You can request a moving date change here: <a href="${options.rescheduleUrl}">${options.rescheduleUrl}</a></p>`
-        : `<p>Online rescheduling is unlocked ${RESCHEDULE_WAIT_DAYS} days after the original booking date. Contact us directly if you need to change the date sooner.</p>`
+        ? `<p><strong>Reschedule link:</strong> <a href="${options.rescheduleUrl}">${options.rescheduleUrl}</a></p>`
+        : ""
     }
     <hr/>
     <p>Questions? Reply to this email or contact ${escapeHtml(site.name)} at <a href="mailto:${escapeHtml(site.publicEmail)}">${escapeHtml(site.publicEmail)}</a>.</p>

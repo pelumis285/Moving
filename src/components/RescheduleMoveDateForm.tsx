@@ -12,6 +12,7 @@ type RescheduleBooking = {
   status: string;
   finalBillAmount: number;
   tokenExpiresAt: string | null;
+  rescheduleUnlockAt: string;
   createdAt: string;
 };
 
@@ -30,6 +31,13 @@ function formatDateOnly(value: string) {
     dateStyle: "long",
     timeZone: "UTC",
   }).format(new Date(`${value}T12:00:00.000Z`));
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 export default function RescheduleMoveDateForm() {
@@ -133,6 +141,13 @@ export default function RescheduleMoveDateForm() {
         </p>
         <p className="mt-2">
           <strong>Current bill:</strong> {formatMoney(booking.finalBillAmount)}
+        </p>
+        <p className="mt-2">
+          <strong>Reschedule window opened:</strong> {formatDateTime(booking.rescheduleUnlockAt)}
+        </p>
+        <p className="mt-2">
+          <strong>Reschedule link expires:</strong>{" "}
+          {booking.tokenExpiresAt ? formatDateTime(booking.tokenExpiresAt) : "Not available"}
         </p>
       </div>
 

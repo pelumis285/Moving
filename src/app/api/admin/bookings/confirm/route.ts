@@ -9,8 +9,10 @@ import {
   createRescheduleToken,
   findBookingDateConflictInDatabase,
   formatMoveDate,
+  getRescheduleUnlockAt,
   getRescheduleTokenExpiry,
   getRescheduleUrl,
+  isRescheduleWindowExpired,
   lockMoveDate,
   normalizeMoveDate,
   parseMoney,
@@ -66,13 +68,11 @@ export async function POST(request: Request) {
   }
 
   const now = new Date();
-  const needsFreshToken =
-    !existing.rescheduleToken ||
-    !existing.rescheduleTokenExpiresAt ||
-    existing.rescheduleTokenExpiresAt.getTime() < now.getTime();
-  const rescheduleToken = needsFreshToken ? createRescheduleToken() : existing.rescheduleToken!;
-  const rescheduleTokenExpiresAt = getRescheduleTokenExpiry(now);
-  const includeRescheduleLink = canOfferRescheduleLink(existing.createdAt, now);
+  const rescheduleToken = existing.rescheduleToken ?? createRescheduleToken();
+  const rescheduleUnlockAt = getRescheduleUnlockAt(existing.createdAt);
+  const rescheduleTokenExpiresAt = getRescheduleTokenExpiry(existing.createdAt);
+  const rescheduleWindowOpen = canOfferRescheduleLink(existing.createdAt, now);
+  const rescheduleWindowExpired = isRescheduleWindowExpired(existing.createdAt, now);
 
   let updated;
   try {
@@ -127,7 +127,11 @@ export async function POST(request: Request) {
     to: updated.email,
     subject: `Your ${site.name} move is confirmed for ${formatMoveDate(updated.moveDate)}`,
     html: buildBookingConfirmationEmail(updated, {
-      rescheduleUrl: includeRescheduleLink ? getRescheduleUrl(rescheduleToken) : null,
+      rescheduleUrl: getRescheduleUrl(rescheduleToken),
+      rescheduleUnlockAt,
+      rescheduleExpiresAt: rescheduleTokenExpiresAt,
+      rescheduleWindowOpen,
+      rescheduleWindowExpired,
     }),
     replyTo: process.env.NOTIFY_EMAIL || site.operationsEmail,
     attachments: [bookingPdfAttachment],
@@ -144,6 +148,6 @@ export async function POST(request: Request) {
       lastRescheduledAt: updated.lastRescheduledAt?.toISOString() ?? null,
     },
     emailDelivered: emailResult.delivered,
-    rescheduleLinkIncluded: includeRescheduleLink,
+    rescheduleLinkIncluded: true,
   });
 }

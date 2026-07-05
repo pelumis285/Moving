@@ -36,6 +36,7 @@ type AdminBooking = {
   rescheduleTokenExpiresAt: string | null;
   currentBillAmount: number;
   rescheduleEligible: boolean;
+  rescheduleExpired: boolean;
   rescheduleEligibleAt: string;
   rescheduleUrl: string | null;
   createdAtLabel: string;
@@ -493,9 +494,15 @@ export default function AdminBookingsDashboard() {
                       </p>
                       <p className="mt-2">
                         <strong>Reschedule link:</strong>{" "}
+                        {booking.rescheduleUrl ?? "Will be generated on first confirmation"}
+                      </p>
+                      <p className="mt-2">
+                        <strong>Reschedule window:</strong>{" "}
                         {booking.rescheduleEligible
-                          ? booking.rescheduleUrl ?? "Will be generated on first confirmation"
-                          : `Not yet. Unlocks ${formatDateTime(booking.rescheduleEligibleAt)}.`}
+                          ? `Open now. Expires ${formatDateTime(booking.rescheduleTokenExpiresAt)}.`
+                          : booking.rescheduleExpired
+                            ? `Expired ${formatDateTime(booking.rescheduleTokenExpiresAt)}.`
+                            : `Locked until ${formatDateTime(booking.rescheduleEligibleAt)}. Expires ${formatDateTime(booking.rescheduleTokenExpiresAt)}.`}
                       </p>
                     </div>
 

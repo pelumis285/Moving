@@ -1,14 +1,17 @@
 import { eq } from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "@/db";
-import { bookings } from "@/db/schema";
+import { type Booking, bookings } from "@/db/schema";
 import {
   buildMoveDateConflictMessage,
   buildCustomerRescheduleEmail,
   buildOwnerRescheduleNoticeEmail,
-  canOfferRescheduleLink,
   findBookingDateConflictInDatabase,
+  formatDateTime,
   formatMoveDate,
   getEffectiveBillAmount,
+  getRescheduleTokenExpiry,
+  getRescheduleUnlockAt,
+  isRescheduleWindowExpired,
   lockMoveDate,
   normalizeMoveDate,
 } from "@/lib/bookings";
@@ -21,21 +24,39 @@ function getTokenFromUrl(request: Request) {
   return new URL(request.url).searchParams.get("token")?.trim() ?? "";
 }
 
+function getRescheduleAccessError(booking: Booking, now = new Date()) {
+  const rescheduleUnlockAt = getRescheduleUnlockAt(booking.createdAt);
+  const rescheduleExpiresAt = getRescheduleTokenExpiry(booking.createdAt);
+
+  if (now.getTime() < rescheduleUnlockAt.getTime()) {
+    return {
+      status: 403,
+      error: `This reschedule link will become active on ${formatDateTime(rescheduleUnlockAt)}. It will expire on ${formatDateTime(rescheduleExpiresAt)}.`,
+    };
+  }
+
+  if (isRescheduleWindowExpired(booking.createdAt, now)) {
+    return {
+      status: 410,
+      error: `This reschedule link expired on ${formatDateTime(rescheduleExpiresAt)}. Online rescheduling is no longer available for this booking.`,
+    };
+  }
+
+  return null;
+}
+
 async function getBookingForToken(token: string) {
   if (!token) return null;
 
   const [booking] = await getDb().select().from(bookings).where(eq(bookings.rescheduleToken, token)).limit(1);
   if (!booking) return null;
 
-  if (!booking.rescheduleTokenExpiresAt || booking.rescheduleTokenExpiresAt.getTime() < Date.now()) {
-    return null;
+  const accessError = getRescheduleAccessError(booking);
+  if (accessError) {
+    return accessError;
   }
 
-  if (!canOfferRescheduleLink(booking.createdAt)) {
-    return null;
-  }
-
-  return booking;
+  return { booking };
 }
 
 export async function GET(request: Request) {
@@ -44,11 +65,19 @@ export async function GET(request: Request) {
   }
 
   const token = getTokenFromUrl(request);
-  const booking = await getBookingForToken(token);
+  const result = await getBookingForToken(token);
 
-  if (!booking) {
-    return Response.json({ ok: false, error: "This reschedule link is invalid or expired." }, { status: 404 });
+  if (!result) {
+    return Response.json({ ok: false, error: "This reschedule link is invalid." }, { status: 404 });
   }
+
+  if ("error" in result) {
+    return Response.json({ ok: false, error: result.error }, { status: result.status });
+  }
+
+  const { booking } = result;
+  const rescheduleUnlockAt = getRescheduleUnlockAt(booking.createdAt);
+  const rescheduleExpiresAt = getRescheduleTokenExpiry(booking.createdAt);
 
   return Response.json({
     ok: true,
@@ -60,7 +89,8 @@ export async function GET(request: Request) {
       moveDate: booking.moveDate,
       status: booking.status,
       finalBillAmount: getEffectiveBillAmount(booking),
-      tokenExpiresAt: booking.rescheduleTokenExpiresAt?.toISOString() ?? null,
+      tokenExpiresAt: rescheduleExpiresAt.toISOString(),
+      rescheduleUnlockAt: rescheduleUnlockAt.toISOString(),
       createdAt: booking.createdAt.toISOString(),
     },
   });
@@ -89,11 +119,16 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "A valid reschedule token and move date are required." }, { status: 400 });
   }
 
-  const booking = await getBookingForToken(token);
-  if (!booking) {
-    return Response.json({ ok: false, error: "This reschedule link is invalid or expired." }, { status: 404 });
+  const result = await getBookingForToken(token);
+  if (!result) {
+    return Response.json({ ok: false, error: "This reschedule link is invalid." }, { status: 404 });
   }
 
+  if ("error" in result) {
+    return Response.json({ ok: false, error: result.error }, { status: result.status });
+  }
+
+  const { booking } = result;
   const previousMoveDate = booking.moveDate;
   let updated;
   try {

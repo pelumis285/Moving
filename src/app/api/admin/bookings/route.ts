@@ -2,11 +2,13 @@ import { desc } from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
 import {
-  RESCHEDULE_WAIT_DAYS,
   canOfferRescheduleLink,
   formatDateTime,
   getEffectiveBillAmount,
+  getRescheduleTokenExpiry,
+  getRescheduleUnlockAt,
   getRescheduleUrl,
+  isRescheduleWindowExpired,
 } from "@/lib/bookings";
 import { requireAdminRequest } from "@/lib/admin";
 
@@ -26,9 +28,9 @@ export async function GET(request: Request) {
     ok: true,
     bookings: rows.map((booking) => {
       const rescheduleEligible = canOfferRescheduleLink(booking.createdAt);
-      const rescheduleEligibleAt = new Date(
-        booking.createdAt.getTime() + RESCHEDULE_WAIT_DAYS * 24 * 60 * 60 * 1000,
-      );
+      const rescheduleEligibleAt = getRescheduleUnlockAt(booking.createdAt);
+      const rescheduleTokenExpiresAt = getRescheduleTokenExpiry(booking.createdAt);
+      const rescheduleExpired = isRescheduleWindowExpired(booking.createdAt);
 
       return {
         ...booking,
@@ -37,10 +39,11 @@ export async function GET(request: Request) {
         createdAt: booking.createdAt.toISOString(),
         confirmedAt: booking.confirmedAt?.toISOString() ?? null,
         confirmationEmailSentAt: booking.confirmationEmailSentAt?.toISOString() ?? null,
-        rescheduleTokenExpiresAt: booking.rescheduleTokenExpiresAt?.toISOString() ?? null,
+        rescheduleTokenExpiresAt: rescheduleTokenExpiresAt.toISOString(),
         lastRescheduledAt: booking.lastRescheduledAt?.toISOString() ?? null,
         currentBillAmount: getEffectiveBillAmount(booking),
         rescheduleEligible,
+        rescheduleExpired,
         rescheduleEligibleAt: rescheduleEligibleAt.toISOString(),
         rescheduleUrl: booking.rescheduleToken ? getRescheduleUrl(booking.rescheduleToken) : null,
         createdAtLabel: formatDateTime(booking.createdAt),
