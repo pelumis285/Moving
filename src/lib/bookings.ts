@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { bookings, type Booking } from "@/db/schema";
+import { type Booking, bookings } from "@/db/schema";
 import { escapeHtml } from "@/lib/email";
 import {
   calculateDetailedPrice,
@@ -53,14 +53,25 @@ export function normalizeMoveDate(value: string) {
   return normalized;
 }
 
-export async function findBookingDateConflict(moveDate: string, options?: { excludeBookingId?: number }) {
+type BookingConflictQueryDb = Pick<ReturnType<typeof getDb>, "select">;
+type MoveDateLockDb = Pick<ReturnType<typeof getDb>, "execute">;
+
+export async function lockMoveDate(database: MoveDateLockDb, moveDate: string) {
+  await database.execute(sql`select pg_advisory_xact_lock(hashtext(${moveDate}))`);
+}
+
+export async function findBookingDateConflictInDatabase(
+  database: BookingConflictQueryDb,
+  moveDate: string,
+  options?: { excludeBookingId?: number },
+) {
   const excludeBookingId = options?.excludeBookingId;
   const whereClause =
     typeof excludeBookingId === "number" && excludeBookingId > 0
       ? and(eq(bookings.moveDate, moveDate), ne(bookings.id, excludeBookingId))
       : eq(bookings.moveDate, moveDate);
 
-  const [conflict] = await getDb()
+  const [conflict] = await database
     .select({
       id: bookings.id,
       fullName: bookings.fullName,
@@ -74,24 +85,12 @@ export async function findBookingDateConflict(moveDate: string, options?: { excl
   return conflict ?? null;
 }
 
-export function buildMoveDateConflictMessage(moveDate: string) {
-  return `Sorry, ${formatMoveDate(moveDate)} is already booked. Please choose a different moving date.`;
+export async function findBookingDateConflict(moveDate: string, options?: { excludeBookingId?: number }) {
+  return findBookingDateConflictInDatabase(getDb(), moveDate, options);
 }
 
-export function isMoveDateConflictError(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-
-  const maybeDatabaseError = error as {
-    code?: string;
-    constraint?: string;
-    detail?: string;
-  };
-
-  return (
-    maybeDatabaseError.code === "23505" &&
-    (maybeDatabaseError.constraint === "bookings_move_date_unique" ||
-      maybeDatabaseError.detail?.includes("(move_date)") === true)
-  );
+export function buildMoveDateConflictMessage(moveDate: string) {
+  return `Sorry, ${formatMoveDate(moveDate)} is already booked. Please choose a different moving date.`;
 }
 
 export function formatMoveDate(value: string) {

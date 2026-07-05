@@ -7,11 +7,11 @@ import {
   buildBookingConfirmationEmail,
   canOfferRescheduleLink,
   createRescheduleToken,
-  findBookingDateConflict,
+  findBookingDateConflictInDatabase,
   formatMoveDate,
   getRescheduleTokenExpiry,
   getRescheduleUrl,
-  isMoveDateConflictError,
+  lockMoveDate,
   normalizeMoveDate,
   parseMoney,
 } from "@/lib/bookings";
@@ -65,14 +65,6 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "Booking not found." }, { status: 404 });
   }
 
-  const conflictingBooking = await findBookingDateConflict(moveDate, { excludeBookingId: bookingId });
-  if (conflictingBooking) {
-    return Response.json(
-      { ok: false, error: buildMoveDateConflictMessage(moveDate) },
-      { status: 409 },
-    );
-  }
-
   const now = new Date();
   const needsFreshToken =
     !existing.rescheduleToken ||
@@ -84,28 +76,43 @@ export async function POST(request: Request) {
 
   let updated;
   try {
-    [updated] = await getDb()
-      .update(bookings)
-      .set({
-        moveDate,
-        finalCost: finalCost.toFixed(2),
-        adminNotes: adminNotes || null,
-        status: existing.status === "rescheduled" ? "rescheduled" : "confirmed",
-        confirmedAt: existing.confirmedAt ?? now,
-        confirmationEmailSentAt: now,
-        rescheduleToken,
-        rescheduleTokenExpiresAt,
-      })
-      .where(eq(bookings.id, bookingId))
-      .returning();
-  } catch (error) {
-    if (isMoveDateConflictError(error)) {
+    const result = await getDb().transaction(async (tx) => {
+      await lockMoveDate(tx, moveDate);
+
+      const conflictingBooking = await findBookingDateConflictInDatabase(tx, moveDate, {
+        excludeBookingId: bookingId,
+      });
+      if (conflictingBooking) {
+        return { conflict: true as const };
+      }
+
+      const [confirmedBooking] = await tx
+        .update(bookings)
+        .set({
+          moveDate,
+          finalCost: finalCost.toFixed(2),
+          adminNotes: adminNotes || null,
+          status: existing.status === "rescheduled" ? "rescheduled" : "confirmed",
+          confirmedAt: existing.confirmedAt ?? now,
+          confirmationEmailSentAt: now,
+          rescheduleToken,
+          rescheduleTokenExpiresAt,
+        })
+        .where(eq(bookings.id, bookingId))
+        .returning();
+
+      return { conflict: false as const, updated: confirmedBooking };
+    });
+
+    if (result.conflict) {
       return Response.json(
         { ok: false, error: buildMoveDateConflictMessage(moveDate) },
         { status: 409 },
       );
     }
 
+    updated = result.updated;
+  } catch (error) {
     console.error("[admin/bookings/confirm] db update failed:", error);
     return Response.json({ ok: false, error: "Could not confirm booking." }, { status: 500 });
   }

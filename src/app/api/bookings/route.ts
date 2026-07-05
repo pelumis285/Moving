@@ -2,9 +2,9 @@ import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
 import {
   buildMoveDateConflictMessage,
-  findBookingDateConflict,
+  findBookingDateConflictInDatabase,
   getQuoteDetailsList,
-  isMoveDateConflictError,
+  lockMoveDate,
   normalizeMoveDate,
   parseMoney,
 } from "@/lib/bookings";
@@ -112,50 +112,55 @@ export async function POST(request: Request) {
     );
   }
 
-  const conflictingBooking = await findBookingDateConflict(moveDate);
-  if (conflictingBooking) {
-    return Response.json(
-      { ok: false, error: buildMoveDateConflictMessage(moveDate) },
-      { status: 409 },
-    );
-  }
-
   let inserted;
   try {
-    [inserted] = await getDb()
-      .insert(bookings)
-      .values({
-        fullName,
-        email,
-        phone,
-        origin,
-        destination,
-        loadSize,
-        moveDate,
-        distanceKm,
-        fragileItems,
-        heavyItems,
-        stairFlights,
-        elevatorAccess,
-        packingHelp,
-        assemblyHelp,
-        longCarry,
-        buildingType,
-        carryFloor,
-        estimatedCost: String(estimatedCost),
-        targetBudget: targetBudget != null ? String(targetBudget) : null,
-        negotiationNotes: negotiationNotes || null,
-        notes: notes || null,
-      })
-      .returning({ id: bookings.id });
-  } catch (err) {
-    if (isMoveDateConflictError(err)) {
+    const result = await getDb().transaction(async (tx) => {
+      await lockMoveDate(tx, moveDate);
+
+      const conflictingBooking = await findBookingDateConflictInDatabase(tx, moveDate);
+      if (conflictingBooking) {
+        return { conflict: true as const };
+      }
+
+      const [createdBooking] = await tx
+        .insert(bookings)
+        .values({
+          fullName,
+          email,
+          phone,
+          origin,
+          destination,
+          loadSize,
+          moveDate,
+          distanceKm,
+          fragileItems,
+          heavyItems,
+          stairFlights,
+          elevatorAccess,
+          packingHelp,
+          assemblyHelp,
+          longCarry,
+          buildingType,
+          carryFloor,
+          estimatedCost: String(estimatedCost),
+          targetBudget: targetBudget != null ? String(targetBudget) : null,
+          negotiationNotes: negotiationNotes || null,
+          notes: notes || null,
+        })
+        .returning({ id: bookings.id });
+
+      return { conflict: false as const, inserted: createdBooking };
+    });
+
+    if (result.conflict) {
       return Response.json(
         { ok: false, error: buildMoveDateConflictMessage(moveDate) },
         { status: 409 },
       );
     }
 
+    inserted = result.inserted;
+  } catch (err) {
     console.error("[bookings] db insert failed:", err);
     return Response.json({ ok: false, error: "Could not save your booking. Please try again." }, { status: 500 });
   }
