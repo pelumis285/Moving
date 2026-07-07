@@ -20,6 +20,40 @@ export type DistanceEstimate = {
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const OSRM_ROUTE_URL = "https://router.project-osrm.org/route/v1/driving";
 const DISTANCE_USER_AGENT = `${site.name}/1.0 (${site.url}; contact: ${site.operationsEmail})`;
+const CANADIAN_POSTAL_CODE_PATTERN = /\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b/i;
+const CANADIAN_PROVINCE_PATTERN = /\b(AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT)\b/i;
+const STREET_SUFFIXES = new Set([
+  "ALLEY",
+  "AVE",
+  "AVENUE",
+  "BLVD",
+  "BOULEVARD",
+  "CIR",
+  "CIRCLE",
+  "COURT",
+  "CRT",
+  "CRES",
+  "CRESCENT",
+  "DR",
+  "DRIVE",
+  "HWY",
+  "LANE",
+  "LN",
+  "PARKWAY",
+  "PATH",
+  "PLACE",
+  "PL",
+  "RD",
+  "ROAD",
+  "SQ",
+  "ST",
+  "STREET",
+  "TER",
+  "TERRACE",
+  "TRAIL",
+  "WAY",
+]);
+const DIRECTIONAL_TOKENS = new Set(["N", "S", "E", "W", "NE", "NW", "SE", "SW", "NORTH", "SOUTH", "EAST", "WEST"]);
 
 const globalForDistance = globalThis as typeof globalThis & {
   __surftmoveGeocodeCache?: Map<string, Coordinates | null>;
@@ -38,11 +72,107 @@ function getDistanceCache() {
 }
 
 function normalizeAddress(value: string) {
-  return value.trim().replace(/\s+/g, " ");
+  return value
+    .trim()
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*/g, ", ")
+    .trim();
 }
 
 function createPairKey(origin: string, destination: string) {
   return `${normalizeAddress(origin).toLowerCase()} -> ${normalizeAddress(destination).toLowerCase()}`;
+}
+
+function stripTrailingPunctuation(value: string) {
+  return value.replace(/[.,]+$/g, "");
+}
+
+function looksCanadianAddress(address: string) {
+  return CANADIAN_PROVINCE_PATTERN.test(address) || CANADIAN_POSTAL_CODE_PATTERN.test(address) || /\bCanada\b/i.test(address);
+}
+
+function addCountrySuffix(address: string) {
+  if (!address || /\bCanada\b/i.test(address)) {
+    return address;
+  }
+
+  return `${address}, Canada`;
+}
+
+function stripCanadianPostalCode(address: string) {
+  return address
+    .replace(CANADIAN_POSTAL_CODE_PATTERN, "")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,/g, ", ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/[,\s]+$/g, "")
+    .trim();
+}
+
+function stripStandaloneHouseLetter(address: string) {
+  return address.replace(/^(\d+)\s+[A-Z]\s+(?=[A-Z])/i, "$1 ");
+}
+
+function repairCanadianStreetCitySeparation(address: string) {
+  const provinceMatch = CANADIAN_PROVINCE_PATTERN.exec(address);
+  const provinceIndex = provinceMatch?.index ?? -1;
+  if (provinceIndex <= 0) {
+    return address;
+  }
+
+  const beforeProvince = address.slice(0, provinceIndex).replace(/,\s*$/g, "").trim();
+  if (!beforeProvince || beforeProvince.includes(",")) {
+    return address;
+  }
+
+  const tokens = beforeProvince.split(/\s+/);
+  let suffixIndex = -1;
+
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    if (STREET_SUFFIXES.has(stripTrailingPunctuation(tokens[index]).toUpperCase())) {
+      suffixIndex = index;
+      break;
+    }
+  }
+
+  if (suffixIndex === -1 || suffixIndex === tokens.length - 1) {
+    return address;
+  }
+
+  let cityStartIndex = suffixIndex + 1;
+  while (cityStartIndex < tokens.length && DIRECTIONAL_TOKENS.has(stripTrailingPunctuation(tokens[cityStartIndex]).toUpperCase())) {
+    cityStartIndex += 1;
+  }
+
+  if (cityStartIndex >= tokens.length) {
+    return address;
+  }
+
+  const streetPart = tokens.slice(0, cityStartIndex).join(" ");
+  const cityPart = tokens.slice(cityStartIndex).join(" ");
+  const afterStreet = address.slice(provinceIndex).replace(/^,\s*/g, "").trim();
+
+  return `${streetPart}, ${cityPart}, ${afterStreet}`.replace(/\s{2,}/g, " ").trim();
+}
+
+function buildAddressCandidates(address: string) {
+  const normalized = normalizeAddress(address);
+  const repaired = repairCanadianStreetCitySeparation(normalized);
+  const noPostal = stripCanadianPostalCode(repaired);
+  const simplifiedHouse = stripStandaloneHouseLetter(noPostal);
+  const candidates = [
+    normalized,
+    repaired,
+    addCountrySuffix(repaired),
+    simplifiedHouse,
+    addCountrySuffix(simplifiedHouse),
+    noPostal,
+    addCountrySuffix(noPostal),
+  ];
+
+  return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
 }
 
 async function waitForNominatimSlot() {
@@ -65,47 +195,67 @@ async function geocodeAddress(address: string) {
     return cache.get(normalized) ?? null;
   }
 
-  const params = new URLSearchParams({
-    q: normalized,
-    format: "jsonv2",
-    limit: "1",
-    email: site.operationsEmail,
-  });
+  for (const candidate of buildAddressCandidates(address)) {
+    if (cache.has(candidate)) {
+      const cachedCoordinates = cache.get(candidate) ?? null;
+      if (cachedCoordinates) {
+        cache.set(normalized, cachedCoordinates);
+        return cachedCoordinates;
+      }
 
-  await waitForNominatimSlot();
+      continue;
+    }
 
-  const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
-    headers: {
-      "User-Agent": DISTANCE_USER_AGENT,
-      "Accept-Language": "en-CA,en;q=0.9",
-    },
-  });
+    const params = new URLSearchParams({
+      q: candidate,
+      format: "jsonv2",
+      limit: "1",
+      email: site.operationsEmail,
+    });
 
-  if (!response.ok) {
-    throw new Error(`Geocoder responded ${response.status}`);
+    if (looksCanadianAddress(candidate)) {
+      params.set("countrycodes", "ca");
+    }
+
+    await waitForNominatimSlot();
+
+    const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+      headers: {
+        "User-Agent": DISTANCE_USER_AGENT,
+        "Accept-Language": "en-CA,en;q=0.9",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Geocoder responded ${response.status}`);
+    }
+
+    const results = (await response.json()) as GeocodeResult[];
+    const first = results[0];
+
+    if (!first?.lat || !first?.lon) {
+      cache.set(candidate, null);
+      continue;
+    }
+
+    const coordinates = {
+      lat: Number(first.lat),
+      lon: Number(first.lon),
+      label: first.display_name || candidate,
+    };
+
+    if (!Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lon)) {
+      cache.set(candidate, null);
+      continue;
+    }
+
+    cache.set(candidate, coordinates);
+    cache.set(normalized, coordinates);
+    return coordinates;
   }
 
-  const results = (await response.json()) as GeocodeResult[];
-  const first = results[0];
-
-  if (!first?.lat || !first?.lon) {
-    cache.set(normalized, null);
-    return null;
-  }
-
-  const coordinates = {
-    lat: Number(first.lat),
-    lon: Number(first.lon),
-    label: first.display_name || normalized,
-  };
-
-  if (!Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lon)) {
-    cache.set(normalized, null);
-    return null;
-  }
-
-  cache.set(normalized, coordinates);
-  return coordinates;
+  cache.set(normalized, null);
+  return null;
 }
 
 function toRadians(value: number) {
