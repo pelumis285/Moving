@@ -8,7 +8,7 @@ export const site = {
   address: "Ontario, Canada",
   serviceArea: "Ontario, Canada",
   hours: "Mon–Sat: 7:00 AM – 8:00 PM",
-  url: "https://moving.sam-portfolio.com",
+  url: "https://surftmove.ca",
   tagline: "Stress-free local & long-distance moving across Ontario.",
   foundedYear: 2024,
   primaryCities: ["Toronto", "Ottawa", "Kingston", "Mississauga", "Hamilton", "London", "Barrie", "Peterborough"],
