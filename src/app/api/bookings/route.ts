@@ -9,6 +9,7 @@ import {
   parseMoney,
 } from "@/lib/bookings";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
+import { estimateDistanceKm as estimateRouteDistanceKm } from "@/lib/distance";
 import {
   calculateDetailedPrice,
   formatCAD,
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   const requestedMoveDate = (body.moveDate ?? "").trim();
   const normalizedMoveDate = normalizeMoveDate(requestedMoveDate);
   const notes = (body.notes ?? "").trim();
-  const distanceKm = Math.max(0, Math.round(Number(body.distanceKm) || 0));
+  let distanceKm = Math.max(0, Math.round(Number(body.distanceKm) || 0));
   const fragileItems = Math.max(0, Math.round(Number(body.fragileItems) || 0));
   const heavyItems = Math.max(0, Math.round(Number(body.heavyItems) || 0));
   const stairFlights = Math.max(0, Math.round(Number(body.stairFlights) || 0));
@@ -91,6 +92,21 @@ export async function POST(request: Request) {
   }
 
   const moveDate = normalizedMoveDate!;
+
+  if (distanceKm <= 0) {
+    const estimate = await estimateRouteDistanceKm(origin, destination);
+    if (!estimate) {
+      return Response.json(
+        {
+          ok: false,
+          error: "We could not estimate the moving distance from those addresses. Please enter the distance manually.",
+        },
+        { status: 400 },
+      );
+    }
+
+    distanceKm = estimate.distanceKm;
+  }
 
   const quote = calculateDetailedPrice(loadSize, distanceKm, {
     fragileItems,

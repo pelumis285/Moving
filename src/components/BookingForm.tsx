@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BUILDING_TYPE_OPTIONS,
   LOAD_SIZES,
@@ -23,7 +23,7 @@ const initialForm = {
   destination: "",
   loadSize: "1-bedroom",
   moveDate: "",
-  distanceKm: "30",
+  distanceKm: "",
   fragileItems: "0",
   heavyItems: "0",
   stairFlights: "0",
@@ -45,6 +45,9 @@ export default function BookingForm() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [distanceStatus, setDistanceStatus] = useState<"idle" | "estimating" | "ready" | "error">("idle");
+  const [distanceMessage, setDistanceMessage] = useState("We will auto-calculate the distance from the two addresses above.");
+  const canAutoEstimateDistance = form.origin.trim().length >= 6 && form.destination.trim().length >= 6;
 
   const quote = useMemo(
     () =>
@@ -69,6 +72,63 @@ export default function BookingForm() {
   function updateToggle(field: "elevatorAccess" | "packingHelp" | "assemblyHelp", value: boolean) {
     setForm((current) => ({ ...current, [field]: value }));
   }
+
+  useEffect(() => {
+    const origin = form.origin.trim();
+    const destination = form.destination.trim();
+
+    if (origin.length < 6 || destination.length < 6) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setDistanceStatus("estimating");
+      setDistanceMessage("Calculating distance from your addresses...");
+
+      try {
+        const response = await fetch("/api/distance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin, destination }),
+          signal: controller.signal,
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          setDistanceStatus("error");
+          setDistanceMessage(data.error || "We could not calculate the distance automatically.");
+          return;
+        }
+
+        setForm((current) => {
+          if (current.origin.trim() !== origin || current.destination.trim() !== destination) {
+            return current;
+          }
+
+          return { ...current, distanceKm: String(data.distanceKm) };
+        });
+        setDistanceStatus("ready");
+        setDistanceMessage(
+          data.source === "route"
+            ? "Distance updated automatically from your origin and destination."
+            : "Distance estimated from the addresses above. You can still adjust it if needed.",
+        );
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setDistanceStatus("error");
+        setDistanceMessage("We could not calculate the distance automatically. You can type it in manually.");
+      }
+    }, 900);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [form.origin, form.destination]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -106,6 +166,10 @@ export default function BookingForm() {
   }
 
   const today = new Date().toISOString().split("T")[0];
+  const distanceHelperStatus = canAutoEstimateDistance ? distanceStatus : "idle";
+  const distanceHelperMessage = canAutoEstimateDistance
+    ? distanceMessage
+    : "We will auto-calculate the distance from the two addresses above.";
 
   if (status === "success") {
     return (
@@ -242,8 +306,20 @@ export default function BookingForm() {
               className={inputClass}
               value={form.distanceKm}
               onChange={(event) => updateText("distanceKm", event.target.value)}
+              placeholder="Auto-calculated from the addresses above"
               required
             />
+            <p
+              className={`mt-1 text-xs ${
+                distanceHelperStatus === "error"
+                  ? "text-red-600"
+                  : distanceHelperStatus === "ready"
+                    ? "text-green-700"
+                    : "text-slate-500"
+              }`}
+            >
+              {distanceHelperMessage}
+            </p>
           </div>
           <div>
             <label className={labelClass} htmlFor="moveDate">
@@ -468,7 +544,7 @@ export default function BookingForm() {
 
         <button
           type="submit"
-          disabled={status === "submitting"}
+          disabled={status === "submitting" || distanceStatus === "estimating"}
           className="inline-flex items-center justify-center rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "submitting" ? "Submitting…" : "Request My Booking"}
