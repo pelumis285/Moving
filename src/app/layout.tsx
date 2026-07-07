@@ -12,6 +12,16 @@ export const metadata: Metadata = {
     default: `${site.name} | Professional Movers in Ontario`,
     template: `%s | ${site.name}`,
   },
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+      { url: "/favicon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: ["/favicon-32x32.png"],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   description:
     "Surftmove offers reliable local and long-distance moving services across Ontario. Get an instant quote, book online, and enjoy a stress-free move with upfront pricing.",
   keywords: [
