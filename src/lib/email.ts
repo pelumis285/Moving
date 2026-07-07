@@ -5,6 +5,7 @@ type EmailPayload = {
   subject: string;
   html: string;
   replyTo?: string;
+  idempotencyKey?: string;
   attachments?: Array<{
     filename: string;
     content: string;
@@ -19,7 +20,7 @@ type EmailPayload = {
  * When no API key is present the message is logged server-side so the app
  * keeps working in development / preview without external secrets.
  */
-export async function sendEmail({ to, subject, html, replyTo, attachments }: EmailPayload): Promise<{
+export async function sendEmail({ to, subject, html, replyTo, idempotencyKey, attachments }: EmailPayload): Promise<{
   delivered: boolean;
   reason?: string;
 }> {
@@ -41,6 +42,7 @@ export async function sendEmail({ to, subject, html, replyTo, attachments }: Ema
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from,

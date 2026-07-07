@@ -3,7 +3,7 @@ export const site = {
   shortName: "Surftmove",
   phone: "(705) 905-8353",
   phoneHref: "tel:+17059058353",
-  publicEmail: "info@surftmove.ca",
+  publicEmail: "info@mail.surftmove.ca",
   operationsEmail: "pelumis285@gmail.com",
   address: "Ontario, Canada",
   serviceArea: "Ontario, Canada",
