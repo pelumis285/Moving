@@ -23,8 +23,22 @@ export type AddressSuggestion = {
   value: string;
 };
 
+type PhotonFeature = {
+  properties?: {
+    housenumber?: string;
+    street?: string;
+    city?: string;
+    county?: string;
+    state?: string;
+    country?: string;
+    postcode?: string;
+    name?: string;
+  };
+};
+
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const OSRM_ROUTE_URL = "https://router.project-osrm.org/route/v1/driving";
+const PHOTON_URL = "https://photon.komoot.io/api";
 const DISTANCE_USER_AGENT = `${site.name}/1.0 (${site.url}; contact: ${site.operationsEmail})`;
 const CANADIAN_POSTAL_CODE_PATTERN = /\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b/i;
 const CANADIAN_PROVINCE_PATTERN = /\b(AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT)\b/i;
@@ -287,26 +301,18 @@ async function geocodeAddress(address: string) {
 
 export async function suggestAddresses(query: string): Promise<AddressSuggestion[]> {
   const normalized = normalizeAddress(query);
-  if (normalized.length < 3) {
+  if (normalized.length < 2) {
     return [];
   }
 
-  const primaryCandidate = buildAddressCandidates(normalized)[0] ?? normalized;
   const params = new URLSearchParams({
-    q: primaryCandidate,
-    format: "jsonv2",
-    limit: "5",
-    dedupe: "1",
-    email: site.operationsEmail,
+    q: normalized,
+    limit: "8",
+    lang: "en",
   });
-  params.set("countrycodes", "ca");
-
-  await waitForNominatimSlot();
-
-  const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+  const response = await fetch(`${PHOTON_URL}?${params.toString()}`, {
     headers: {
       "User-Agent": DISTANCE_USER_AGENT,
-      "Accept-Language": "en-CA,en;q=0.9",
     },
   });
 
@@ -314,22 +320,58 @@ export async function suggestAddresses(query: string): Promise<AddressSuggestion
     throw new Error(`Suggestion service responded ${response.status}`);
   }
 
-  const results = (await response.json()) as GeocodeResult[];
-  const uniqueSuggestions = new Map<string, AddressSuggestion>();
+  const payload = (await response.json()) as { features?: PhotonFeature[] };
+  const normalizedQuery = normalized.toLowerCase();
+  const uniqueSuggestions = new Map<string, { suggestion: AddressSuggestion; score: number }>();
 
-  for (const result of results) {
-    const label = (result.display_name ?? "").trim();
-    if (!label || uniqueSuggestions.has(label)) {
+  function buildSuggestionLabel(feature: PhotonFeature) {
+    const properties = feature.properties ?? {};
+    const line1 = [properties.housenumber, properties.street ?? properties.name].filter(Boolean).join(" ").trim();
+    return [line1 || properties.name, properties.city, properties.county, properties.state, properties.postcode, properties.country]
+      .filter(Boolean)
+      .join(", ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+
+  function scoreSuggestion(feature: PhotonFeature, label: string) {
+    const properties = feature.properties ?? {};
+    let score = 0;
+
+    if ((properties.country ?? "").toLowerCase() === "canada") score += 20;
+    if ((properties.state ?? "").toLowerCase() === "ontario") score += 30;
+    if ((properties.city ?? "").toLowerCase() === "barrie") score += 10;
+    if (label.toLowerCase().includes(normalizedQuery)) score += 10;
+    if ((properties.street ?? "").toLowerCase().includes(normalizedQuery)) score += 5;
+    if ((properties.name ?? "").toLowerCase().includes(normalizedQuery)) score += 3;
+
+    return score;
+  }
+
+  for (const feature of payload.features ?? []) {
+    const label = buildSuggestionLabel(feature);
+    if (!label) {
       continue;
     }
 
-    uniqueSuggestions.set(label, {
-      label,
-      value: label,
-    });
+    const score = scoreSuggestion(feature, label);
+    const existing = uniqueSuggestions.get(label);
+
+    if (!existing || score > existing.score) {
+      uniqueSuggestions.set(label, {
+        suggestion: {
+          label,
+          value: label,
+        },
+        score,
+      });
+    }
   }
 
-  return [...uniqueSuggestions.values()];
+  return [...uniqueSuggestions.values()]
+    .sort((a, b) => b.score - a.score || a.suggestion.label.localeCompare(b.suggestion.label))
+    .slice(0, 5)
+    .map((entry) => entry.suggestion);
 }
 
 function toRadians(value: number) {

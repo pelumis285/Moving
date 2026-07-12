@@ -86,7 +86,7 @@ export default function BookingForm() {
   );
 
   function updateText(field: TextField, value: string) {
-    if ((field === "origin" || field === "destination") && value.trim().length < 3) {
+    if ((field === "origin" || field === "destination") && value.trim().length < 2) {
       updateAddressSuggestions(field, []);
       updateAddressSuggestionStatus(field, "idle");
     }
@@ -128,7 +128,7 @@ export default function BookingForm() {
     }
 
     const query = activeAddressQuery;
-    if (query.length < 3) {
+    if (query.length < 2) {
       return;
     }
 
@@ -161,7 +161,7 @@ export default function BookingForm() {
         updateAddressSuggestions(field, []);
         updateAddressSuggestionStatus(field, "error");
       }
-    }, 250);
+    }, 150);
 
     return () => {
       controller.abort();
@@ -312,7 +312,7 @@ export default function BookingForm() {
           value={form[field]}
           onFocus={() => {
             setActiveAddressField(field);
-            if (form[field].trim().length < 3) {
+            if (form[field].trim().length < 2) {
               updateAddressSuggestions(field, []);
               updateAddressSuggestionStatus(field, "idle");
             }
