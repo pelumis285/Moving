@@ -1,4 +1,5 @@
 import { site } from "@/lib/site";
+import { roundDistanceKm } from "@/lib/distance-format";
 
 type GeocodeResult = {
   lat: string;
@@ -299,7 +300,7 @@ async function fetchRouteDistanceKm(origin: Coordinates, destination: Coordinate
     throw new Error("Route distance unavailable");
   }
 
-  return Math.max(0, Math.round((meters ?? 0) / 1000));
+  return roundDistanceKm((meters ?? 0) / 1000);
 }
 
 export async function estimateDistanceKm(originAddress: string, destinationAddress: string): Promise<DistanceEstimate | null> {
@@ -330,8 +331,8 @@ export async function estimateDistanceKm(originAddress: string, destinationAddre
     cache.set(pairKey, estimate);
     return estimate;
   } catch {
-    const straightLineDistance = Math.round(calculateStraightLineDistanceKm(originCoordinates, destinationCoordinates));
-    const estimate = { distanceKm: Math.max(0, straightLineDistance), source: "straight-line" as const };
+    const straightLineDistance = roundDistanceKm(calculateStraightLineDistanceKm(originCoordinates, destinationCoordinates));
+    const estimate = { distanceKm: straightLineDistance, source: "straight-line" as const };
     cache.set(pairKey, estimate);
     return estimate;
   }

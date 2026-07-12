@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp, integer, numeric, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, timestamp, integer, numeric, boolean, doublePrecision } from "drizzle-orm/pg-core";
 
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
@@ -9,7 +9,7 @@ export const bookings = pgTable("bookings", {
   destination: text("destination").notNull(),
   loadSize: varchar("load_size", { length: 60 }).notNull(),
   moveDate: varchar("move_date", { length: 40 }).notNull(),
-  distanceKm: integer("distance_km").default(0),
+  distanceKm: doublePrecision("distance_km").default(0),
   fragileItems: integer("fragile_items").default(0).notNull(),
   heavyItems: integer("heavy_items").default(0).notNull(),
   stairFlights: integer("stair_flights").default(0).notNull(),

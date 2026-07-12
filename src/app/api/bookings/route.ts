@@ -10,6 +10,7 @@ import {
 } from "@/lib/bookings";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
 import { estimateDistanceKm as estimateRouteDistanceKm } from "@/lib/distance";
+import { formatDistanceKm, parseDistanceKm } from "@/lib/distance-format";
 import { isDateBeforeTodayInSiteTimeZone } from "@/lib/move-date";
 import {
   calculateDetailedPrice,
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
   const requestedMoveDate = (body.moveDate ?? "").trim();
   const normalizedMoveDate = normalizeMoveDate(requestedMoveDate);
   const notes = (body.notes ?? "").trim();
-  let distanceKm = Math.max(0, Math.round(Number(body.distanceKm) || 0));
+  let distanceKm = parseDistanceKm(body.distanceKm) ?? 0;
   const fragileItems = Math.max(0, Math.round(Number(body.fragileItems) || 0));
   const heavyItems = Math.max(0, Math.round(Number(body.heavyItems) || 0));
   const stairFlights = Math.max(0, Math.round(Number(body.stairFlights) || 0));
@@ -213,7 +214,7 @@ export async function POST(request: Request) {
     <p><strong>Destination:</strong> ${escapeHtml(destination)}</p>
     <p><strong>Load size:</strong> ${escapeHtml(quote?.loadLabel ?? loadSize)}</p>
     <p><strong>Move date:</strong> ${escapeHtml(moveDate)}</p>
-    <p><strong>Distance:</strong> ${distanceKm} km</p>
+    <p><strong>Distance:</strong> ${formatDistanceKm(distanceKm)}</p>
     <p><strong>Estimated total:</strong> ${formatCAD(estimatedCost)} (incl. HST)</p>
     ${quoteDetailsHtml ? `<h3>Quote factors</h3>${quoteDetailsHtml}` : ""}
     ${notes ? `<p><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}

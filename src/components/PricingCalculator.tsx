@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { LOAD_SIZES, calculatePrice, formatCAD, PER_KM_RATE, FREE_KM } from "@/lib/pricing";
+import { formatDistanceKm } from "@/lib/distance-format";
 
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100";
@@ -50,7 +51,7 @@ export default function PricingCalculator() {
 
           <div>
             <label className={labelClass} htmlFor="calc-distance">
-              Estimated Distance: {distanceKm} km
+              Estimated Distance: {formatDistanceKm(Number(distanceKm) || 0)}
             </label>
             <input
               id="calc-distance"
@@ -88,7 +89,7 @@ export default function PricingCalculator() {
               <dd className="font-medium">{formatCAD(quote.labour)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-300">Travel ({quote.billableKm} billable km)</dt>
+              <dt className="text-slate-300">Travel ({formatDistanceKm(quote.billableKm)} billable)</dt>
               <dd className="font-medium">{formatCAD(quote.travelCost)}</dd>
             </div>
             <div className="flex justify-between border-t border-slate-700 pt-2.5">

@@ -9,6 +9,7 @@ import {
   getQuoteDetailsList,
   parseMoney,
 } from "@/lib/bookings";
+import { formatDistanceKm } from "@/lib/distance-format";
 import { calculateDetailedPrice, formatCAD } from "@/lib/pricing";
 import { site } from "@/lib/site";
 
@@ -525,7 +526,7 @@ export async function createBookingPdf(booking: PdfBooking) {
     { label: "Move date", value: formatMoveDate(booking.moveDate) },
     { label: "Origin", value: booking.origin },
     { label: "Destination", value: booking.destination },
-    { label: "Distance", value: `${Math.max(0, Math.round(booking.distanceKm ?? 0))} km` },
+    { label: "Distance", value: formatDistanceKm(booking.distanceKm ?? 0) },
     { label: "Status", value: statusLabel },
   ];
 
@@ -555,7 +556,7 @@ export async function createBookingPdf(booking: PdfBooking) {
     ? [
         { label: "Load size", value: pricing.loadLabel },
         { label: "Crew & labour", value: `${pricing.movers} movers · ~${pricing.estHours} hrs at ${formatCAD(pricing.hourlyRate)}/hr` },
-        { label: "Travel", value: `${pricing.billableKm} billable km · ${formatCAD(pricing.travelCost)}` },
+        { label: "Travel", value: `${formatDistanceKm(pricing.billableKm)} billable · ${formatCAD(pricing.travelCost)}` },
         {
           label: "Access conditions",
           value:
@@ -566,7 +567,7 @@ export async function createBookingPdf(booking: PdfBooking) {
       ]
     : [
         { label: "Load size", value: booking.loadSize },
-        { label: "Travel", value: `${Math.max(0, Math.round(booking.distanceKm ?? 0))} km total route` },
+        { label: "Travel", value: `${formatDistanceKm(booking.distanceKm ?? 0)} total route` },
         {
           label: "Access conditions",
           value:

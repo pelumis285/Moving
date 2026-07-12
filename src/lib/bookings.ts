@@ -3,6 +3,7 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { type Booking, bookings } from "@/db/schema";
 import { escapeHtml } from "@/lib/email";
+import { formatDistanceKm, roundDistanceKm } from "@/lib/distance-format";
 import {
   calculateDetailedPrice,
   formatCAD,
@@ -229,7 +230,7 @@ function detailRow(label: string, value: string) {
 function buildBillingHtml(booking: BookingEmailShape) {
   const quote = calculateDetailedPrice(booking.loadSize, booking.distanceKm ?? 0, booking);
   const finalAmount = getEffectiveBillAmount(booking);
-  const totalKm = Math.max(0, Math.round(booking.distanceKm ?? 0));
+  const totalKm = roundDistanceKm(booking.distanceKm ?? 0);
   const rows = [
     detailRow("Final bill", formatCAD(finalAmount)),
     detailRow("Estimated quote", formatCAD(parseMoney(booking.estimatedCost) ?? 0)),
@@ -237,7 +238,12 @@ function buildBillingHtml(booking: BookingEmailShape) {
 
   if (quote) {
     rows.push(detailRow("Load size", escapeHtml(quote.loadLabel)));
-    rows.push(detailRow("Distance", `${totalKm} km total (${quote.billableKm} billable)`));
+    rows.push(
+      detailRow(
+        "Distance",
+        `${formatDistanceKm(totalKm)} total (${formatDistanceKm(quote.billableKm)} billable)`,
+      ),
+    );
   }
 
   for (const detail of getQuoteDetailsList(booking)) {

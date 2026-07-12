@@ -9,6 +9,7 @@ import {
   calculateDetailedPrice,
   formatCAD,
 } from "@/lib/pricing";
+import { formatDistanceKm } from "@/lib/distance-format";
 import { getTodayInSiteTimeZone } from "@/lib/move-date";
 
 const inputClass =
@@ -110,13 +111,16 @@ export default function BookingForm() {
             return current;
           }
 
-          return { ...current, distanceKm: String(data.distanceKm) };
+          return {
+            ...current,
+            distanceKm: formatDistanceKm(data.distanceKm, { withUnit: false }),
+          };
         });
         setDistanceStatus("ready");
         setDistanceMessage(
           data.source === "route"
-            ? "Distance updated automatically from your origin and destination."
-            : "Distance estimated from the addresses above. You can still adjust it if needed.",
+            ? `Distance updated automatically to ${formatDistanceKm(data.distanceKm)} from your origin and destination.`
+            : `Distance estimated at ${formatDistanceKm(data.distanceKm)} from the addresses above. You can still adjust it if needed.`,
         );
       } catch (error) {
         if (controller.signal.aborted) {
@@ -331,6 +335,7 @@ export default function BookingForm() {
               id="distanceKm"
               type="number"
               min={0}
+              step="0.001"
               className={inputClass}
               value={form.distanceKm}
               onChange={(event) => updateText("distanceKm", event.target.value)}
@@ -599,7 +604,7 @@ export default function BookingForm() {
                   <dd className="font-medium text-slate-900">{formatCAD(quote.labour)}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-slate-600">Travel ({quote.billableKm} billable km)</dt>
+                  <dt className="text-slate-600">Travel ({formatDistanceKm(quote.billableKm)} billable)</dt>
                   <dd className="font-medium text-slate-900">{formatCAD(quote.travelCost)}</dd>
                 </div>
 

@@ -1,3 +1,5 @@
+import { roundDistanceKm } from "@/lib/distance-format";
+
 export type LoadSizeKey =
   | "studio"
   | "1-bedroom"
@@ -227,13 +229,13 @@ export function calculatePrice(loadKey: string, distanceKm: number): PriceBreakd
   const load = LOAD_SIZES.find((l) => l.key === loadKey);
   if (!load) return null;
 
-  const km = Math.max(0, Math.round(distanceKm || 0));
-  const billableKm = Math.max(0, km - FREE_KM);
-  const travelCost = +(billableKm * PER_KM_RATE).toFixed(2);
-  const labour = +(load.hourlyRate * load.estHours).toFixed(2);
-  const subtotal = +(load.baseFee + labour + travelCost).toFixed(2);
-  const hst = +(subtotal * HST_RATE).toFixed(2);
-  const total = +(subtotal + hst).toFixed(2);
+  const km = roundDistanceKm(distanceKm || 0);
+  const billableKm = roundDistanceKm(Math.max(0, km - FREE_KM));
+  const travelCost = roundMoney(billableKm * PER_KM_RATE);
+  const labour = roundMoney(load.hourlyRate * load.estHours);
+  const subtotal = roundMoney(load.baseFee + labour + travelCost);
+  const hst = roundMoney(subtotal * HST_RATE);
+  const total = roundMoney(subtotal + hst);
 
   return {
     loadLabel: load.label,
