@@ -305,8 +305,14 @@ export async function suggestAddresses(query: string): Promise<AddressSuggestion
     return [];
   }
 
+  const normalizedWithoutPostal = stripCanadianPostalCode(normalized);
+  const normalizedWithoutUnitLetter = stripStandaloneHouseLetter(normalizedWithoutPostal);
+  const suggestionQuery = looksCanadianAddress(normalizedWithoutUnitLetter)
+    ? normalizedWithoutUnitLetter
+    : addOntarioServiceAreaSuffix(normalizedWithoutUnitLetter);
+
   const params = new URLSearchParams({
-    q: normalized,
+    q: suggestionQuery,
     limit: "8",
     lang: "en",
   });
