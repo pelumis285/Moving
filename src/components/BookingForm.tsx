@@ -743,17 +743,9 @@ export default function BookingForm() {
                   <dd className="font-medium text-slate-900">{formatCAD(quote.labour)}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-slate-600">Travel ({formatDistanceKm(quote.billableKm)})</dt>
+                  <dt className="text-slate-600">Travel</dt>
                   <dd className="font-medium text-slate-900">{formatCAD(quote.travelCost)}</dd>
                 </div>
-                {quote.travelBands.map((band) => (
-                  <div key={band.label} className="flex justify-between gap-4 text-xs">
-                    <dt className="text-slate-500">
-                      {band.label} ({formatDistanceKm(band.distanceKm)} @ {formatCAD(band.rate)}/km)
-                    </dt>
-                    <dd className="font-medium text-slate-700">{formatCAD(band.cost)}</dd>
-                  </div>
-                ))}
 
                 {quote.adjustments.map((adjustment) => (
                   <div key={adjustment.label} className="flex justify-between gap-4">
