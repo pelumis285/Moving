@@ -23,6 +23,12 @@ const OSRM_ROUTE_URL = "https://router.project-osrm.org/route/v1/driving";
 const DISTANCE_USER_AGENT = `${site.name}/1.0 (${site.url}; contact: ${site.operationsEmail})`;
 const CANADIAN_POSTAL_CODE_PATTERN = /\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b/i;
 const CANADIAN_PROVINCE_PATTERN = /\b(AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT)\b/i;
+const ONTARIO_SERVICE_AREA_SUFFIX = "Ontario, Canada";
+const COMMON_ADDRESS_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bcresent\b/gi, "crescent"],
+  [/\bcrecent\b/gi, "crescent"],
+  [/\bcres\b/gi, "crescent"],
+];
 const STREET_SUFFIXES = new Set([
   "ALLEY",
   "AVE",
@@ -73,13 +79,19 @@ function getDistanceCache() {
 }
 
 function normalizeAddress(value: string) {
-  return value
+  let normalized = value
     .trim()
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/\s+/g, " ")
     .replace(/\s+,/g, ",")
     .replace(/,\s*/g, ", ")
     .trim();
+
+  for (const [pattern, replacement] of COMMON_ADDRESS_REPLACEMENTS) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+
+  return normalized;
 }
 
 function createPairKey(origin: string, destination: string) {
@@ -102,6 +114,14 @@ function addCountrySuffix(address: string) {
   return `${address}, Canada`;
 }
 
+function addOntarioServiceAreaSuffix(address: string) {
+  if (!address || looksCanadianAddress(address) || /\bOntario\b/i.test(address)) {
+    return address;
+  }
+
+  return `${address}, ${ONTARIO_SERVICE_AREA_SUFFIX}`;
+}
+
 function stripCanadianPostalCode(address: string) {
   return address
     .replace(CANADIAN_POSTAL_CODE_PATTERN, "")
@@ -113,7 +133,7 @@ function stripCanadianPostalCode(address: string) {
 }
 
 function stripStandaloneHouseLetter(address: string) {
-  return address.replace(/^(\d+)\s+[A-Z]\s+(?=[A-Z])/i, "$1 ");
+  return address.replace(/^(\d+)\s+[A-Z]\s+(?=[A-Za-z])/i, "$1 ");
 }
 
 function repairCanadianStreetCitySeparation(address: string) {
@@ -163,15 +183,18 @@ function buildAddressCandidates(address: string) {
   const repaired = repairCanadianStreetCitySeparation(normalized);
   const noPostal = stripCanadianPostalCode(repaired);
   const simplifiedHouse = stripStandaloneHouseLetter(noPostal);
-  const candidates = [
-    normalized,
-    repaired,
+  const baseCandidates = [normalized, repaired, simplifiedHouse, noPostal];
+  const regionalCandidates = [
+    addOntarioServiceAreaSuffix(repaired),
     addCountrySuffix(repaired),
-    simplifiedHouse,
+    addOntarioServiceAreaSuffix(simplifiedHouse),
     addCountrySuffix(simplifiedHouse),
-    noPostal,
+    addOntarioServiceAreaSuffix(noPostal),
     addCountrySuffix(noPostal),
   ];
+  const candidates = looksCanadianAddress(normalized)
+    ? [...baseCandidates, ...regionalCandidates]
+    : [...regionalCandidates, ...baseCandidates];
 
   return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
 }
@@ -214,9 +237,7 @@ async function geocodeAddress(address: string) {
       email: site.operationsEmail,
     });
 
-    if (looksCanadianAddress(candidate)) {
-      params.set("countrycodes", "ca");
-    }
+    params.set("countrycodes", "ca");
 
     await waitForNominatimSlot();
 
