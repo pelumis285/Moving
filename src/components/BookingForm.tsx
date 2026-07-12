@@ -134,11 +134,17 @@ export default function BookingForm() {
 
     const controller = new AbortController();
     const field = activeAddressField;
+    const biasSource = field === "origin" ? form.destination.trim() : form.origin.trim();
     const timer = window.setTimeout(async () => {
       updateAddressSuggestionStatus(field, "loading");
 
       try {
-        const response = await fetch(`/api/address-suggestions?q=${encodeURIComponent(query)}`, {
+        const params = new URLSearchParams({ q: query });
+        if (biasSource) {
+          params.set("bias", biasSource);
+        }
+
+        const response = await fetch(`/api/address-suggestions?${params.toString()}`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -167,7 +173,7 @@ export default function BookingForm() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [activeAddressField, activeAddressQuery]);
+  }, [activeAddressField, activeAddressQuery, form.destination, form.origin]);
 
   useEffect(() => {
     const origin = form.origin.trim();
