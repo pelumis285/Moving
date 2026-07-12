@@ -43,6 +43,11 @@ const initialForm = {
 
 type FormState = typeof initialForm;
 type TextField = Exclude<keyof FormState, "elevatorAccess" | "packingHelp" | "assemblyHelp">;
+type AddressField = "origin" | "destination";
+type AddressSuggestion = {
+  label: string;
+  value: string;
+};
 const BOOKING_CONVERSION_STORAGE_KEY = "surftmove-last-booking-conversion";
 
 export default function BookingForm() {
@@ -52,7 +57,17 @@ export default function BookingForm() {
   const [message, setMessage] = useState("");
   const [distanceStatus, setDistanceStatus] = useState<"idle" | "estimating" | "ready" | "error">("idle");
   const [distanceMessage, setDistanceMessage] = useState("We will auto-calculate the distance from the two addresses above.");
+  const [activeAddressField, setActiveAddressField] = useState<AddressField | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<Record<AddressField, AddressSuggestion[]>>({
+    origin: [],
+    destination: [],
+  });
+  const [addressSuggestionStatus, setAddressSuggestionStatus] = useState<Record<AddressField, "idle" | "loading" | "error">>({
+    origin: "idle",
+    destination: "idle",
+  });
   const canAutoEstimateDistance = form.origin.trim().length >= 6 && form.destination.trim().length >= 6;
+  const activeAddressQuery = activeAddressField ? form[activeAddressField].trim() : "";
 
   const quote = useMemo(
     () =>
@@ -71,12 +86,88 @@ export default function BookingForm() {
   );
 
   function updateText(field: TextField, value: string) {
+    if ((field === "origin" || field === "destination") && value.trim().length < 3) {
+      updateAddressSuggestions(field, []);
+      updateAddressSuggestionStatus(field, "idle");
+    }
+
     setForm((current) => ({ ...current, [field]: value }));
   }
 
   function updateToggle(field: "elevatorAccess" | "packingHelp" | "assemblyHelp", value: boolean) {
     setForm((current) => ({ ...current, [field]: value }));
   }
+
+  function updateAddressSuggestions(field: AddressField, suggestions: AddressSuggestion[]) {
+    setAddressSuggestions((current) => ({
+      ...current,
+      [field]: suggestions,
+    }));
+  }
+
+  function updateAddressSuggestionStatus(field: AddressField, value: "idle" | "loading" | "error") {
+    setAddressSuggestionStatus((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function selectAddressSuggestion(field: AddressField, suggestion: AddressSuggestion) {
+    setForm((current) => ({
+      ...current,
+      [field]: suggestion.value,
+    }));
+    updateAddressSuggestions(field, []);
+    updateAddressSuggestionStatus(field, "idle");
+    setActiveAddressField(null);
+  }
+
+  useEffect(() => {
+    if (!activeAddressField) {
+      return;
+    }
+
+    const query = activeAddressQuery;
+    if (query.length < 3) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const field = activeAddressField;
+    const timer = window.setTimeout(async () => {
+      updateAddressSuggestionStatus(field, "loading");
+
+      try {
+        const response = await fetch(`/api/address-suggestions?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "Could not load address suggestions.");
+        }
+
+        setAddressSuggestions((current) => ({
+          ...current,
+          [field]: Array.isArray(data.suggestions) ? data.suggestions : [],
+        }));
+        updateAddressSuggestionStatus(field, "idle");
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        updateAddressSuggestions(field, []);
+        updateAddressSuggestionStatus(field, "error");
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [activeAddressField, activeAddressQuery]);
 
   useEffect(() => {
     const origin = form.origin.trim();
@@ -203,6 +294,77 @@ export default function BookingForm() {
     ? distanceMessage
     : "We will auto-calculate the distance from the two addresses above.";
 
+  function renderAddressField(field: AddressField, label: string, placeholder: string) {
+    const suggestions = addressSuggestions[field];
+    const suggestionStatus = addressSuggestionStatus[field];
+    const isOpen =
+      activeAddressField === field &&
+      (suggestionStatus === "loading" || suggestionStatus === "error" || suggestions.length > 0);
+
+    return (
+      <div className="relative">
+        <label className={labelClass} htmlFor={field}>
+          {label}
+        </label>
+        <input
+          id={field}
+          className={inputClass}
+          value={form[field]}
+          onFocus={() => {
+            setActiveAddressField(field);
+            if (form[field].trim().length < 3) {
+              updateAddressSuggestions(field, []);
+              updateAddressSuggestionStatus(field, "idle");
+            }
+          }}
+          onBlur={() => {
+            window.setTimeout(() => {
+              setActiveAddressField((current) => (current === field ? null : current));
+            }, 120);
+          }}
+          onChange={(event) => updateText(field, event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setActiveAddressField(null);
+            }
+          }}
+          required
+          autoComplete="off"
+          placeholder={placeholder}
+        />
+
+        {isOpen ? (
+          <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+            {suggestionStatus === "loading" ? (
+              <p className="px-4 py-3 text-sm text-slate-500">Looking up Ontario address suggestions...</p>
+            ) : suggestionStatus === "error" ? (
+              <p className="px-4 py-3 text-sm text-red-600">
+                We could not load suggestions right now. You can still type the address manually.
+              </p>
+            ) : suggestions.length > 0 ? (
+              <ul className="max-h-72 overflow-y-auto py-1">
+                {suggestions.map((suggestion) => (
+                  <li key={`${field}-${suggestion.value}`}>
+                    <button
+                      type="button"
+                      className="w-full px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        selectAddressSuggestion(field, suggestion);
+                      }}
+                    >
+                      {suggestion.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   if (status === "success") {
     return (
       <div className="rounded-2xl border border-green-200 bg-green-50 p-8 text-center">
@@ -280,32 +442,8 @@ export default function BookingForm() {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label className={labelClass} htmlFor="origin">
-              Moving From (Origin) *
-            </label>
-            <input
-              id="origin"
-              className={inputClass}
-              value={form.origin}
-              onChange={(event) => updateText("origin", event.target.value)}
-              required
-              placeholder="123 King St, Toronto, ON"
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="destination">
-              Moving To (Destination) *
-            </label>
-            <input
-              id="destination"
-              className={inputClass}
-              value={form.destination}
-              onChange={(event) => updateText("destination", event.target.value)}
-              required
-              placeholder="456 Bank St, Ottawa, ON"
-            />
-          </div>
+          {renderAddressField("origin", "Moving From (Origin) *", "123 King St, Toronto, ON")}
+          {renderAddressField("destination", "Moving To (Destination) *", "456 Bank St, Ottawa, ON")}
         </div>
 
         <div className="grid gap-5 sm:grid-cols-3">

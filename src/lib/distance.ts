@@ -18,6 +18,11 @@ export type DistanceEstimate = {
   source: "route" | "straight-line";
 };
 
+export type AddressSuggestion = {
+  label: string;
+  value: string;
+};
+
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const OSRM_ROUTE_URL = "https://router.project-osrm.org/route/v1/driving";
 const DISTANCE_USER_AGENT = `${site.name}/1.0 (${site.url}; contact: ${site.operationsEmail})`;
@@ -278,6 +283,53 @@ async function geocodeAddress(address: string) {
 
   cache.set(normalized, null);
   return null;
+}
+
+export async function suggestAddresses(query: string): Promise<AddressSuggestion[]> {
+  const normalized = normalizeAddress(query);
+  if (normalized.length < 3) {
+    return [];
+  }
+
+  const primaryCandidate = buildAddressCandidates(normalized)[0] ?? normalized;
+  const params = new URLSearchParams({
+    q: primaryCandidate,
+    format: "jsonv2",
+    limit: "5",
+    dedupe: "1",
+    email: site.operationsEmail,
+  });
+  params.set("countrycodes", "ca");
+
+  await waitForNominatimSlot();
+
+  const response = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
+    headers: {
+      "User-Agent": DISTANCE_USER_AGENT,
+      "Accept-Language": "en-CA,en;q=0.9",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Suggestion service responded ${response.status}`);
+  }
+
+  const results = (await response.json()) as GeocodeResult[];
+  const uniqueSuggestions = new Map<string, AddressSuggestion>();
+
+  for (const result of results) {
+    const label = (result.display_name ?? "").trim();
+    if (!label || uniqueSuggestions.has(label)) {
+      continue;
+    }
+
+    uniqueSuggestions.set(label, {
+      label,
+      value: label,
+    });
+  }
+
+  return [...uniqueSuggestions.values()];
 }
 
 function toRadians(value: number) {
