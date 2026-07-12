@@ -241,7 +241,7 @@ function buildBillingHtml(booking: BookingEmailShape) {
     rows.push(
       detailRow(
         "Distance",
-        `${formatDistanceKm(totalKm)} total (${formatDistanceKm(quote.billableKm)} billable)`,
+        `${formatDistanceKm(totalKm)} total`,
       ),
     );
   }

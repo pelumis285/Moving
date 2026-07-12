@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PricingCalculator from "@/components/PricingCalculator";
-import { LOAD_SIZES, formatCAD, PER_KM_RATE, FREE_KM, HST_RATE } from "@/lib/pricing";
+import { LOAD_SIZES, formatCAD, PER_KM_RATE, HST_RATE } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Moving Cost Calculator & Pricing",
@@ -21,7 +21,7 @@ const faqs = [
   },
   {
     q: "What's included in the travel charge?",
-    a: `The first ${FREE_KM} km are free. Beyond that we charge a flat ${formatCAD(PER_KM_RATE)} per km to cover fuel and travel time.`,
+    a: `We charge a flat ${formatCAD(PER_KM_RATE)} per km for the full moving distance to cover fuel and travel time.`,
   },
   {
     q: "Do you offer packing supplies?",
@@ -85,7 +85,7 @@ export default function PricingPage() {
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <h2 className="text-center text-2xl font-bold text-slate-900 sm:text-3xl">Rates by load size</h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            Travel is {formatCAD(PER_KM_RATE)}/km after the first {FREE_KM} km. All prices subject to{" "}
+            Travel is {formatCAD(PER_KM_RATE)}/km for the full route distance. All prices subject to{" "}
             {Math.round(HST_RATE * 100)}% HST.
           </p>
           <div className="mt-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">

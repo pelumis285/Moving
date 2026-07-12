@@ -604,7 +604,7 @@ export default function BookingForm() {
                   <dd className="font-medium text-slate-900">{formatCAD(quote.labour)}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-slate-600">Travel ({formatDistanceKm(quote.billableKm)} billable)</dt>
+                  <dt className="text-slate-600">Travel ({formatDistanceKm(quote.billableKm)})</dt>
                   <dd className="font-medium text-slate-900">{formatCAD(quote.travelCost)}</dd>
                 </div>
 

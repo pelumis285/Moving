@@ -556,7 +556,7 @@ export async function createBookingPdf(booking: PdfBooking) {
     ? [
         { label: "Load size", value: pricing.loadLabel },
         { label: "Crew & labour", value: `${pricing.movers} movers · ~${pricing.estHours} hrs at ${formatCAD(pricing.hourlyRate)}/hr` },
-        { label: "Travel", value: `${formatDistanceKm(pricing.billableKm)} billable · ${formatCAD(pricing.travelCost)}` },
+        { label: "Travel", value: `${formatDistanceKm(pricing.billableKm)} · ${formatCAD(pricing.travelCost)}` },
         {
           label: "Access conditions",
           value:

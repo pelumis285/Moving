@@ -76,7 +76,7 @@ export const LOAD_SIZES: LoadSizeOption[] = [
 ];
 
 export const PER_KM_RATE = 75; // fuel + travel per km
-export const FREE_KM = 25; // first 25 km included
+export const FREE_KM = 0; // every km is billable
 export const HST_RATE = 0.13; // Ontario HST
 export const FRAGILE_ITEM_SURCHARGE = 14;
 export const HEAVY_ITEM_SURCHARGE = 35;

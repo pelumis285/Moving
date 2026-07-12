@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { LOAD_SIZES, calculatePrice, formatCAD, PER_KM_RATE, FREE_KM } from "@/lib/pricing";
+import { LOAD_SIZES, calculatePrice, formatCAD, PER_KM_RATE } from "@/lib/pricing";
 import { formatDistanceKm } from "@/lib/distance-format";
 
 const inputClass =
@@ -23,8 +23,8 @@ export default function PricingCalculator() {
       <div>
         <h2 className="text-xl font-bold text-slate-900">Instant Cost Calculator</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Pricing is based on your load size plus travel distance. The first {FREE_KM} km are free —
-          after that we charge a flat {formatCAD(PER_KM_RATE)}/km.
+          Pricing is based on your load size plus travel distance. We charge a flat {formatCAD(PER_KM_RATE)}/km
+          for the full moving distance.
         </p>
 
         <div className="mt-6 space-y-5">
@@ -89,7 +89,7 @@ export default function PricingCalculator() {
               <dd className="font-medium">{formatCAD(quote.labour)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-300">Travel ({formatDistanceKm(quote.billableKm)} billable)</dt>
+              <dt className="text-slate-300">Travel ({formatDistanceKm(quote.billableKm)})</dt>
               <dd className="font-medium">{formatCAD(quote.travelCost)}</dd>
             </div>
             <div className="flex justify-between border-t border-slate-700 pt-2.5">
