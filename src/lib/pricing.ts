@@ -98,10 +98,10 @@ export const ASSEMBLY_HELP_SURCHARGE = 95;
 export const CARRY_FLOOR_SURCHARGE = 16;
 export const ELEVATOR_FLOOR_SURCHARGE = 7;
 export const DISTANCE_PRICING_BANDS: DistancePricingBand[] = [
-  { label: "1-5 km", startKm: 0, endKm: 5, rate: 45 },
-  { label: "5-15 km", startKm: 5, endKm: 15, rate: 35 },
-  { label: "15-50 km", startKm: 15, endKm: 50, rate: 25 },
-  { label: "Over 50 km", startKm: 50, endKm: null, rate: 15 },
+  { label: "1-5 km", startKm: 0, endKm: 5, rate: 35 },
+  { label: "5-15 km", startKm: 5, endKm: 15, rate: 28 },
+  { label: "15-50 km", startKm: 15, endKm: 50, rate: 22 },
+  { label: "Over 50 km", startKm: 50, endKm: null, rate: 18 },
 ];
 
 export type LongCarryKey = "standard" | "medium" | "long";

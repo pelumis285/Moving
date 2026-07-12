@@ -141,10 +141,10 @@ export default function PricingPage() {
               </p>
             </div>
             <div className="space-y-2 text-sm text-slate-700">
-              <p><strong>3 km:</strong> 3 × {formatCAD(45)} = {formatCAD(135)}</p>
-              <p><strong>8 km:</strong> 5 × {formatCAD(45)} + 3 × {formatCAD(35)} = {formatCAD(330)}</p>
-              <p><strong>20 km:</strong> 5 × {formatCAD(45)} + 10 × {formatCAD(35)} + 5 × {formatCAD(25)} = {formatCAD(700)}</p>
-              <p><strong>60 km:</strong> 5 × {formatCAD(45)} + 10 × {formatCAD(35)} + 35 × {formatCAD(25)} + 10 × {formatCAD(15)} = {formatCAD(1600)}</p>
+              <p><strong>3 km:</strong> 3 × {formatCAD(35)} = {formatCAD(105)}</p>
+              <p><strong>8 km:</strong> 5 × {formatCAD(35)} + 3 × {formatCAD(28)} = {formatCAD(259)}</p>
+              <p><strong>20 km:</strong> 5 × {formatCAD(35)} + 10 × {formatCAD(28)} + 5 × {formatCAD(22)} = {formatCAD(565)}</p>
+              <p><strong>60 km:</strong> 5 × {formatCAD(35)} + 10 × {formatCAD(28)} + 35 × {formatCAD(22)} + 10 × {formatCAD(18)} = {formatCAD(1405)}</p>
             </div>
           </div>
         </div>
