@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BUILDING_TYPE_OPTIONS,
   LOAD_SIZES,
@@ -41,8 +42,10 @@ const initialForm = {
 
 type FormState = typeof initialForm;
 type TextField = Exclude<keyof FormState, "elevatorAccess" | "packingHelp" | "assemblyHelp">;
+const BOOKING_CONVERSION_STORAGE_KEY = "surftmove-last-booking-conversion";
 
 export default function BookingForm() {
+  const router = useRouter();
   const [form, setForm] = useState<FormState>(initialForm);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -160,6 +163,30 @@ export default function BookingForm() {
       setMessage(
         `Thank you, ${form.fullName.split(" ")[0]}! Your booking request was received. We'll review your move details, custom quote factors, and budget notes before confirming.`,
       );
+
+      if (typeof window !== "undefined") {
+        const bookingId = Number(data.id);
+        const bookingValue = Number(data.estimatedCost);
+
+        window.sessionStorage.setItem(
+          BOOKING_CONVERSION_STORAGE_KEY,
+          JSON.stringify({
+            bookingId: Number.isFinite(bookingId) ? bookingId : null,
+            bookingValue: Number.isFinite(bookingValue) ? bookingValue : null,
+            createdAt: Date.now(),
+          }),
+        );
+      }
+
+      const bookingIdQuery = Number(data.id);
+      const thankYouUrl =
+        Number.isFinite(bookingIdQuery) && bookingIdQuery > 0
+          ? `/booking/thank-you?booking=${bookingIdQuery}`
+          : "/booking/thank-you";
+
+      startTransition(() => {
+        router.push(thankYouUrl);
+      });
     } catch {
       setStatus("error");
       setMessage("Network error. Please check your connection and try again.");
