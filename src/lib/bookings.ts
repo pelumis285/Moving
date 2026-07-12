@@ -244,6 +244,7 @@ function buildBillingHtml(booking: BookingEmailShape) {
         `${formatDistanceKm(totalKm)} total`,
       ),
     );
+    rows.push(detailRow("Travel charge", formatCAD(quote.travelCost)));
   }
 
   for (const detail of getQuoteDetailsList(booking)) {

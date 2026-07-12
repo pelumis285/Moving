@@ -18,6 +18,20 @@ export type LoadSizeOption = {
   movers: number;
 };
 
+export type DistancePricingBand = {
+  label: string;
+  startKm: number;
+  endKm: number | null;
+  rate: number;
+};
+
+export type AppliedDistanceBand = {
+  label: string;
+  rate: number;
+  distanceKm: number;
+  cost: number;
+};
+
 export const LOAD_SIZES: LoadSizeOption[] = [
   {
     key: "studio",
@@ -75,8 +89,6 @@ export const LOAD_SIZES: LoadSizeOption[] = [
   },
 ];
 
-export const PER_KM_RATE = 75; // fuel + travel per km
-export const FREE_KM = 0; // every km is billable
 export const HST_RATE = 0.13; // Ontario HST
 export const FRAGILE_ITEM_SURCHARGE = 14;
 export const HEAVY_ITEM_SURCHARGE = 35;
@@ -85,6 +97,12 @@ export const PACKING_HELP_SURCHARGE = 140;
 export const ASSEMBLY_HELP_SURCHARGE = 95;
 export const CARRY_FLOOR_SURCHARGE = 16;
 export const ELEVATOR_FLOOR_SURCHARGE = 7;
+export const DISTANCE_PRICING_BANDS: DistancePricingBand[] = [
+  { label: "1-5 km", startKm: 0, endKm: 5, rate: 45 },
+  { label: "5-15 km", startKm: 5, endKm: 15, rate: 35 },
+  { label: "15-50 km", startKm: 15, endKm: 50, rate: 25 },
+  { label: "Over 50 km", startKm: 50, endKm: null, rate: 15 },
+];
 
 export type LongCarryKey = "standard" | "medium" | "long";
 export type BuildingTypeKey = "house-ground" | "condo" | "story-building";
@@ -150,6 +168,7 @@ export type PriceBreakdown = {
   hourlyRate: number;
   billableKm: number;
   travelCost: number;
+  travelBands: AppliedDistanceBand[];
   subtotal: number;
   hst: number;
   total: number;
@@ -230,8 +249,24 @@ export function calculatePrice(loadKey: string, distanceKm: number): PriceBreakd
   if (!load) return null;
 
   const km = roundDistanceKm(distanceKm || 0);
-  const billableKm = roundDistanceKm(Math.max(0, km - FREE_KM));
-  const travelCost = roundMoney(billableKm * PER_KM_RATE);
+  const billableKm = km;
+  const travelBands = DISTANCE_PRICING_BANDS.reduce<AppliedDistanceBand[]>((bands, band) => {
+    const upperBound = band.endKm ?? Number.POSITIVE_INFINITY;
+    const bandDistance = roundDistanceKm(Math.max(0, Math.min(km, upperBound) - band.startKm));
+    if (bandDistance <= 0) {
+      return bands;
+    }
+
+    bands.push({
+      label: band.label,
+      rate: band.rate,
+      distanceKm: bandDistance,
+      cost: roundMoney(bandDistance * band.rate),
+    });
+
+    return bands;
+  }, []);
+  const travelCost = roundMoney(travelBands.reduce((sum, band) => sum + band.cost, 0));
   const labour = roundMoney(load.hourlyRate * load.estHours);
   const subtotal = roundMoney(load.baseFee + labour + travelCost);
   const hst = roundMoney(subtotal * HST_RATE);
@@ -246,6 +281,7 @@ export function calculatePrice(loadKey: string, distanceKm: number): PriceBreakd
     hourlyRate: load.hourlyRate,
     billableKm,
     travelCost,
+    travelBands,
     subtotal,
     hst,
     total,

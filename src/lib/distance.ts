@@ -301,7 +301,7 @@ async function geocodeAddress(address: string) {
 
 export async function suggestAddresses(query: string): Promise<AddressSuggestion[]> {
   const normalized = normalizeAddress(query);
-  if (normalized.length < 2) {
+  if (!normalized) {
     return [];
   }
 
@@ -346,7 +346,6 @@ export async function suggestAddresses(query: string): Promise<AddressSuggestion
 
     if ((properties.country ?? "").toLowerCase() === "canada") score += 20;
     if ((properties.state ?? "").toLowerCase() === "ontario") score += 30;
-    if ((properties.city ?? "").toLowerCase() === "barrie") score += 10;
     if (label.toLowerCase().includes(normalizedQuery)) score += 10;
     if ((properties.street ?? "").toLowerCase().includes(normalizedQuery)) score += 5;
     if ((properties.name ?? "").toLowerCase().includes(normalizedQuery)) score += 3;

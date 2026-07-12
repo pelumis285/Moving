@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PricingCalculator from "@/components/PricingCalculator";
-import { LOAD_SIZES, formatCAD, PER_KM_RATE, HST_RATE } from "@/lib/pricing";
+import { DISTANCE_PRICING_BANDS, LOAD_SIZES, formatCAD, HST_RATE } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Moving Cost Calculator & Pricing",
@@ -21,7 +21,7 @@ const faqs = [
   },
   {
     q: "What's included in the travel charge?",
-    a: `We charge a flat ${formatCAD(PER_KM_RATE)} per km for the full moving distance to cover fuel and travel time.`,
+    a: "Travel uses progressive distance bands. Each part of the route is charged at its matching band rate, then all band charges are added together.",
   },
   {
     q: "Do you offer packing supplies?",
@@ -85,9 +85,26 @@ export default function PricingPage() {
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <h2 className="text-center text-2xl font-bold text-slate-900 sm:text-3xl">Rates by load size</h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            Travel is {formatCAD(PER_KM_RATE)}/km for the full route distance. All prices subject to{" "}
-            {Math.round(HST_RATE * 100)}% HST.
+            Travel follows progressive distance bands. All prices subject to {Math.round(HST_RATE * 100)}% HST.
           </p>
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full min-w-[420px] text-left text-sm">
+              <thead className="bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="px-5 py-3 font-semibold">Distance Band</th>
+                  <th className="px-5 py-3 font-semibold">Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {DISTANCE_PRICING_BANDS.map((band) => (
+                  <tr key={band.label}>
+                    <td className="px-5 py-4 text-slate-700">{band.label}</td>
+                    <td className="px-5 py-4 text-slate-700">{formatCAD(band.rate)}/km</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div className="mt-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="bg-slate-100 text-slate-700">
@@ -114,6 +131,21 @@ export default function PricingPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Progressive Travel Examples</h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Each band is priced separately, then all band charges are added together.
+              </p>
+            </div>
+            <div className="space-y-2 text-sm text-slate-700">
+              <p><strong>3 km:</strong> 3 × {formatCAD(45)} = {formatCAD(135)}</p>
+              <p><strong>8 km:</strong> 5 × {formatCAD(45)} + 3 × {formatCAD(35)} = {formatCAD(330)}</p>
+              <p><strong>20 km:</strong> 5 × {formatCAD(45)} + 10 × {formatCAD(35)} + 5 × {formatCAD(25)} = {formatCAD(700)}</p>
+              <p><strong>60 km:</strong> 5 × {formatCAD(45)} + 10 × {formatCAD(35)} + 35 × {formatCAD(25)} + 10 × {formatCAD(15)} = {formatCAD(1600)}</p>
+            </div>
           </div>
         </div>
       </section>

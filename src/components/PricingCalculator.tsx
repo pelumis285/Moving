@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { LOAD_SIZES, calculatePrice, formatCAD, PER_KM_RATE } from "@/lib/pricing";
+import { DISTANCE_PRICING_BANDS, LOAD_SIZES, calculatePrice, formatCAD } from "@/lib/pricing";
 import { formatDistanceKm } from "@/lib/distance-format";
 
 const inputClass =
@@ -23,9 +23,17 @@ export default function PricingCalculator() {
       <div>
         <h2 className="text-xl font-bold text-slate-900">Instant Cost Calculator</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Pricing is based on your load size plus travel distance. We charge a flat {formatCAD(PER_KM_RATE)}/km
-          for the full moving distance.
+          Pricing is based on your load size plus travel distance. Travel is calculated progressively across
+          each distance band instead of using one flat rate.
         </p>
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+          {DISTANCE_PRICING_BANDS.map((band) => (
+            <p key={band.label}>
+              <strong>{band.label}:</strong> {formatCAD(band.rate)}/km
+            </p>
+          ))}
+        </div>
 
         <div className="mt-6 space-y-5">
           <div>
@@ -92,6 +100,14 @@ export default function PricingCalculator() {
               <dt className="text-slate-300">Travel ({formatDistanceKm(quote.billableKm)})</dt>
               <dd className="font-medium">{formatCAD(quote.travelCost)}</dd>
             </div>
+            {quote.travelBands.map((band) => (
+              <div key={band.label} className="flex justify-between text-xs">
+                <dt className="text-slate-400">
+                  {band.label} ({formatDistanceKm(band.distanceKm)} @ {formatCAD(band.rate)}/km)
+                </dt>
+                <dd className="text-slate-200">{formatCAD(band.cost)}</dd>
+              </div>
+            ))}
             <div className="flex justify-between border-t border-slate-700 pt-2.5">
               <dt className="text-slate-300">Subtotal</dt>
               <dd className="font-medium">{formatCAD(quote.subtotal)}</dd>

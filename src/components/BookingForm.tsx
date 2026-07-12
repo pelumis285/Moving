@@ -86,7 +86,7 @@ export default function BookingForm() {
   );
 
   function updateText(field: TextField, value: string) {
-    if ((field === "origin" || field === "destination") && value.trim().length < 2) {
+    if ((field === "origin" || field === "destination") && value.trim().length < 1) {
       updateAddressSuggestions(field, []);
       updateAddressSuggestionStatus(field, "idle");
     }
@@ -128,22 +128,17 @@ export default function BookingForm() {
     }
 
     const query = activeAddressQuery;
-    if (query.length < 2) {
+    if (query.length < 1) {
       return;
     }
 
     const controller = new AbortController();
     const field = activeAddressField;
-    const biasSource = field === "origin" ? form.destination.trim() : form.origin.trim();
     const timer = window.setTimeout(async () => {
       updateAddressSuggestionStatus(field, "loading");
 
       try {
         const params = new URLSearchParams({ q: query });
-        if (biasSource) {
-          params.set("bias", biasSource);
-        }
-
         const response = await fetch(`/api/address-suggestions?${params.toString()}`, {
           signal: controller.signal,
           cache: "no-store",
@@ -173,7 +168,7 @@ export default function BookingForm() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [activeAddressField, activeAddressQuery, form.destination, form.origin]);
+  }, [activeAddressField, activeAddressQuery]);
 
   useEffect(() => {
     const origin = form.origin.trim();
@@ -751,6 +746,14 @@ export default function BookingForm() {
                   <dt className="text-slate-600">Travel ({formatDistanceKm(quote.billableKm)})</dt>
                   <dd className="font-medium text-slate-900">{formatCAD(quote.travelCost)}</dd>
                 </div>
+                {quote.travelBands.map((band) => (
+                  <div key={band.label} className="flex justify-between gap-4 text-xs">
+                    <dt className="text-slate-500">
+                      {band.label} ({formatDistanceKm(band.distanceKm)} @ {formatCAD(band.rate)}/km)
+                    </dt>
+                    <dd className="font-medium text-slate-700">{formatCAD(band.cost)}</dd>
+                  </div>
+                ))}
 
                 {quote.adjustments.map((adjustment) => (
                   <div key={adjustment.label} className="flex justify-between gap-4">
