@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { getTodayInSiteTimeZone } from "@/lib/move-date";
 
 type RescheduleBooking = {
   id: number;
@@ -50,6 +51,7 @@ export default function RescheduleMoveDateForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const today = getTodayInSiteTimeZone();
 
   useEffect(() => {
     async function loadBooking() {
@@ -161,7 +163,7 @@ export default function RescheduleMoveDateForm() {
             type="date"
             className={inputClass}
             value={moveDate}
-            min={new Date().toISOString().split("T")[0]}
+            min={today}
             onChange={(event) => setMoveDate(event.target.value)}
             required
           />

@@ -18,6 +18,7 @@ import {
   parseMoney,
 } from "@/lib/bookings";
 import { sendEmail } from "@/lib/email";
+import { isDateBeforeTodayInSiteTimeZone } from "@/lib/move-date";
 import { createBookingPdf, getBookingPdfFilename } from "@/lib/pdf";
 import { site } from "@/lib/site";
 
@@ -56,6 +57,9 @@ export async function POST(request: Request) {
 
   if (!moveDate) {
     return Response.json({ ok: false, error: "A valid move date is required." }, { status: 400 });
+  }
+  if (isDateBeforeTodayInSiteTimeZone(moveDate)) {
+    return Response.json({ ok: false, error: "Confirmed move date cannot be in the past." }, { status: 400 });
   }
 
   if (finalCost == null || finalCost < 0) {

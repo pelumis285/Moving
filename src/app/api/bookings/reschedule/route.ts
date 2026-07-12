@@ -16,6 +16,7 @@ import {
   normalizeMoveDate,
 } from "@/lib/bookings";
 import { sendEmail, sendOwnerEmail } from "@/lib/email";
+import { isDateBeforeTodayInSiteTimeZone } from "@/lib/move-date";
 import { site } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -117,6 +118,9 @@ export async function POST(request: Request) {
   const moveDate = normalizeMoveDate(body.moveDate ?? "");
   if (!token || !moveDate) {
     return Response.json({ ok: false, error: "A valid reschedule token and move date are required." }, { status: 400 });
+  }
+  if (isDateBeforeTodayInSiteTimeZone(moveDate)) {
+    return Response.json({ ok: false, error: "The new move date cannot be in the past." }, { status: 400 });
   }
 
   const result = await getBookingForToken(token);

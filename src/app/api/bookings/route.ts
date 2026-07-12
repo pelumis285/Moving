@@ -10,6 +10,7 @@ import {
 } from "@/lib/bookings";
 import { sendOwnerEmail, escapeHtml } from "@/lib/email";
 import { estimateDistanceKm as estimateRouteDistanceKm } from "@/lib/distance";
+import { isDateBeforeTodayInSiteTimeZone } from "@/lib/move-date";
 import {
   calculateDetailedPrice,
   formatCAD,
@@ -86,6 +87,9 @@ export async function POST(request: Request) {
   if (!loadSize) errors.push("Load size is required.");
   if (!requestedMoveDate) errors.push("Move date is required.");
   if (requestedMoveDate && !normalizedMoveDate) errors.push("A valid move date is required.");
+  if (normalizedMoveDate && isDateBeforeTodayInSiteTimeZone(normalizedMoveDate)) {
+    errors.push("Move date cannot be in the past.");
+  }
 
   if (errors.length > 0) {
     return Response.json({ ok: false, error: errors.join(" ") }, { status: 400 });

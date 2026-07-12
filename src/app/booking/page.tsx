@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import BookingForm from "@/components/BookingForm";
 import { site } from "@/lib/site";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Book Your Move",
   description:

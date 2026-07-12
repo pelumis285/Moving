@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getTodayInSiteTimeZone } from "@/lib/move-date";
 import { getBuildingTypeLabel, getLongCarryLabel } from "@/lib/pricing";
 
 type AdminBooking = {
@@ -132,6 +133,7 @@ function createReviewDrafts(reviews: AdminReview[]) {
 }
 
 export default function AdminBookingsDashboard() {
+  const today = getTodayInSiteTimeZone();
   const [passwordInput, setPasswordInput] = useState(getSavedAdminPassword);
   const [adminPassword, setAdminPassword] = useState("");
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
@@ -581,6 +583,7 @@ export default function AdminBookingsDashboard() {
                         type="date"
                         className={inputClass}
                         value={draft?.moveDate ?? booking.moveDate}
+                        min={today}
                         onChange={(event) => updateBookingDraft(booking.id, "moveDate", event.target.value)}
                       />
                     </div>
