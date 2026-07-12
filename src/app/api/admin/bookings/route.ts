@@ -1,4 +1,4 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "@/db";
 import { bookings } from "@/db/schema";
 import {
@@ -51,4 +51,29 @@ export async function GET(request: Request) {
       };
     }),
   });
+}
+
+export async function DELETE(request: Request) {
+  const authError = requireAdminRequest(request);
+  if (authError) return authError;
+
+  if (!isDatabaseConfigured()) {
+    return Response.json({ ok: false, error: "Database is not configured." }, { status: 503 });
+  }
+
+  const bookingId = Number(new URL(request.url).searchParams.get("id"));
+  if (!Number.isInteger(bookingId) || bookingId <= 0) {
+    return Response.json({ ok: false, error: "A valid booking id is required." }, { status: 400 });
+  }
+
+  const deleted = await getDb()
+    .delete(bookings)
+    .where(eq(bookings.id, bookingId))
+    .returning({ id: bookings.id });
+
+  if (deleted.length === 0) {
+    return Response.json({ ok: false, error: "Booking not found." }, { status: 404 });
+  }
+
+  return Response.json({ ok: true, id: deleted[0]?.id ?? bookingId });
 }

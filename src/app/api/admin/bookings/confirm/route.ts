@@ -5,6 +5,7 @@ import { requireAdminRequest } from "@/lib/admin";
 import {
   buildMoveDateConflictMessage,
   buildBookingConfirmationEmail,
+  buildBookingConfirmationSms,
   canOfferRescheduleLink,
   createRescheduleToken,
   findBookingDateConflictInDatabase,
@@ -21,6 +22,7 @@ import { sendEmail } from "@/lib/email";
 import { isDateBeforeTodayInSiteTimeZone } from "@/lib/move-date";
 import { createBookingPdf, getBookingPdfFilename } from "@/lib/pdf";
 import { site } from "@/lib/site";
+import { sendSms } from "@/lib/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -127,19 +129,31 @@ export async function POST(request: Request) {
     content: Buffer.from(bookingPdfBytes).toString("base64"),
   };
 
-  const emailResult = await sendEmail({
-    to: updated.email,
-    subject: `Your ${site.name} move is confirmed for ${formatMoveDate(updated.moveDate)}`,
-    html: buildBookingConfirmationEmail(updated, {
-      rescheduleUrl: getRescheduleUrl(rescheduleToken),
-      rescheduleUnlockAt,
-      rescheduleExpiresAt: rescheduleTokenExpiresAt,
-      rescheduleWindowOpen,
-      rescheduleWindowExpired,
+  const rescheduleUrl = getRescheduleUrl(rescheduleToken);
+
+  const [emailResult, smsResult] = await Promise.all([
+    sendEmail({
+      to: updated.email,
+      subject: `Your ${site.name} move is confirmed for ${formatMoveDate(updated.moveDate)}`,
+      html: buildBookingConfirmationEmail(updated, {
+        rescheduleUrl,
+        rescheduleUnlockAt,
+        rescheduleExpiresAt: rescheduleTokenExpiresAt,
+        rescheduleWindowOpen,
+        rescheduleWindowExpired,
+      }),
+      replyTo: process.env.NOTIFY_EMAIL || site.operationsEmail,
+      attachments: [bookingPdfAttachment],
     }),
-    replyTo: process.env.NOTIFY_EMAIL || site.operationsEmail,
-    attachments: [bookingPdfAttachment],
-  });
+    sendSms({
+      to: updated.phone,
+      body: buildBookingConfirmationSms(updated, {
+        rescheduleUrl,
+        rescheduleUnlockAt,
+        rescheduleExpiresAt: rescheduleTokenExpiresAt,
+      }),
+    }),
+  ]);
 
   return Response.json({
     ok: true,
@@ -152,6 +166,9 @@ export async function POST(request: Request) {
       lastRescheduledAt: updated.lastRescheduledAt?.toISOString() ?? null,
     },
     emailDelivered: emailResult.delivered,
+    emailReason: emailResult.reason,
+    smsDelivered: smsResult.delivered,
+    smsReason: smsResult.reason,
     rescheduleLinkIncluded: true,
   });
 }

@@ -75,6 +75,8 @@ type ReviewDraftState = Record<
   }
 >;
 
+type BookingAction = "confirm" | "download" | "delete";
+
 const cardClass = "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm";
 const inputClass =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100";
@@ -143,7 +145,10 @@ export default function AdminBookingsDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeBookingId, setActiveBookingId] = useState<number | null>(null);
+  const [activeBookingAction, setActiveBookingAction] = useState<{
+    id: number;
+    action: BookingAction;
+  } | null>(null);
   const [activeReviewId, setActiveReviewId] = useState<number | null>(null);
 
   const hasPassword = Boolean(adminPassword);
@@ -222,11 +227,31 @@ export default function AdminBookingsDashboard() {
     }));
   }
 
+  function buildConfirmationNotice(
+    bookingId: number,
+    emailDelivered: boolean,
+    smsDelivered: boolean,
+  ) {
+    if (emailDelivered && smsDelivered) {
+      return `Booking #${bookingId} updated and confirmation email with PDF plus SMS were sent.`;
+    }
+
+    if (emailDelivered) {
+      return `Booking #${bookingId} updated and confirmation email with PDF sent. SMS is not configured or could not be delivered yet.`;
+    }
+
+    if (smsDelivered) {
+      return `Booking #${bookingId} updated and confirmation SMS sent. Email delivery is not configured yet.`;
+    }
+
+    return `Booking #${bookingId} updated. Email and SMS delivery are not configured yet.`;
+  }
+
   async function handleConfirm(bookingId: number) {
     const draft = bookingDrafts[bookingId];
     if (!draft) return;
 
-    setActiveBookingId(bookingId);
+    setActiveBookingAction({ id: bookingId, action: "confirm" });
     setError("");
     setNotice("");
 
@@ -250,21 +275,17 @@ export default function AdminBookingsDashboard() {
         throw new Error(data.error || "Could not confirm booking.");
       }
 
-      setNotice(
-        data.emailDelivered
-          ? `Booking #${bookingId} updated and confirmation email with PDF sent.`
-          : `Booking #${bookingId} updated. Email delivery is not configured yet.`,
-      );
+      setNotice(buildConfirmationNotice(bookingId, Boolean(data.emailDelivered), Boolean(data.smsDelivered)));
       await loadDashboard(adminPassword);
     } catch (confirmError) {
       setError(confirmError instanceof Error ? confirmError.message : "Could not confirm booking.");
     } finally {
-      setActiveBookingId(null);
+      setActiveBookingAction(null);
     }
   }
 
   async function handleDownloadPdf(bookingId: number) {
-    setActiveBookingId(bookingId);
+    setActiveBookingAction({ id: bookingId, action: "download" });
     setError("");
     setNotice("");
 
@@ -292,7 +313,39 @@ export default function AdminBookingsDashboard() {
     } catch (downloadError) {
       setError(downloadError instanceof Error ? downloadError.message : "Could not generate PDF.");
     } finally {
-      setActiveBookingId(null);
+      setActiveBookingAction(null);
+    }
+  }
+
+  async function handleDeleteBooking(bookingId: number) {
+    const shouldDelete = window.confirm(
+      `Delete booking #${bookingId}? This permanently removes the booking and frees up that move date.`,
+    );
+    if (!shouldDelete) return;
+
+    setActiveBookingAction({ id: bookingId, action: "delete" });
+    setError("");
+    setNotice("");
+
+    try {
+      const res = await fetch(`/api/admin/bookings?id=${bookingId}`, {
+        method: "DELETE",
+        headers: {
+          "x-admin-password": adminPassword,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Could not delete booking.");
+      }
+
+      setNotice(`Booking #${bookingId} was deleted.`);
+      await loadDashboard(adminPassword);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Could not delete booking.");
+    } finally {
+      setActiveBookingAction(null);
     }
   }
 
@@ -433,7 +486,8 @@ export default function AdminBookingsDashboard() {
         <div className="grid gap-6">
           {bookings.map((booking) => {
             const draft = bookingDrafts[booking.id];
-            const actionBusy = activeBookingId === booking.id;
+            const actionState = activeBookingAction?.id === booking.id ? activeBookingAction.action : null;
+            const actionBusy = actionState !== null;
 
             return (
               <article key={booking.id} className={cardClass}>
@@ -462,7 +516,7 @@ export default function AdminBookingsDashboard() {
                       disabled={actionBusy}
                       className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                     >
-                      Download PDF
+                      {actionState === "download" ? "Preparing PDF..." : "Download PDF"}
                     </button>
                     <button
                       type="button"
@@ -470,7 +524,19 @@ export default function AdminBookingsDashboard() {
                       disabled={actionBusy}
                       className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
                     >
-                      {actionBusy ? "Working..." : booking.confirmedAt ? "Update & Resend" : "Confirm & Email"}
+                      {actionState === "confirm"
+                        ? "Sending..."
+                        : booking.confirmedAt
+                          ? "Update & Resend"
+                          : "Confirm & Notify"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteBooking(booking.id)}
+                      disabled={actionBusy}
+                      className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {actionState === "delete" ? "Deleting..." : "Delete"}
                     </button>
                   </div>
                 </div>

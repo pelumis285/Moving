@@ -297,6 +297,26 @@ export function buildBookingConfirmationEmail(
   `;
 }
 
+export function buildBookingConfirmationSms(
+  booking: BookingEmailShape,
+  options: {
+    rescheduleUrl?: string | null;
+    rescheduleUnlockAt: Date;
+    rescheduleExpiresAt: Date;
+  },
+) {
+  const segments = [
+    `${site.name}: your booking #${booking.id} is confirmed for ${formatMoveDate(booking.moveDate)}.`,
+    `Billing amount: ${formatCAD(getEffectiveBillAmount(booking))}.`,
+    options.rescheduleUrl ? `Reschedule link: ${options.rescheduleUrl}.` : "",
+    `This link unlocks ${formatDateTime(options.rescheduleUnlockAt)} and expires ${formatDateTime(options.rescheduleExpiresAt)}.`,
+    "We will talk to you shortly.",
+    "When we contact you, please let us know if you prefer text or phone call.",
+  ];
+
+  return segments.filter(Boolean).join(" ");
+}
+
 export function buildCustomerRescheduleEmail(booking: BookingEmailShape) {
   return `
     <h2>Your move date has been updated</h2>
