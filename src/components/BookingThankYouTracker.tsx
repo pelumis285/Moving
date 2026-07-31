@@ -9,6 +9,7 @@ const MAX_CONVERSION_AGE_MS = 15 * 60 * 1000;
 declare global {
   interface Window {
     dataLayer?: Array<Record<string, unknown>>;
+    fbq?: (...args: unknown[]) => void;
   }
 }
 
@@ -62,6 +63,25 @@ export default function BookingThankYouTracker() {
       stored.bookingId !== bookingIdFromUrl
     ) {
       return;
+    }
+
+    const metaConversionPayload: Record<string, unknown> = {
+      content_name: "Move booking request",
+      content_category: "moving_service",
+      currency: "CAD",
+    };
+
+    if (stored.bookingId != null) {
+      metaConversionPayload.booking_id = stored.bookingId;
+    }
+
+    if (stored.bookingValue != null) {
+      metaConversionPayload.value = stored.bookingValue;
+    }
+
+    if (typeof window.fbq === "function") {
+      window.fbq("track", "Lead", metaConversionPayload);
+      window.fbq("trackCustom", "BookingSubmission", metaConversionPayload);
     }
 
     window.dataLayer = window.dataLayer || [];

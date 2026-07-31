@@ -9,6 +9,7 @@ import { site } from "@/lib/site";
 const GTM_ID =
   process.env.NEXT_PUBLIC_GTM_ID?.trim() ||
   (process.env.NODE_ENV === "production" ? "GTM-NMM23LS9" : null);
+const META_PIXEL_ID = "2996520100692899";
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -88,6 +89,29 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-CA">
       <body className="flex min-h-screen flex-col bg-white font-sans text-slate-800 antialiased">
+        <Script id="meta-pixel" strategy="beforeInteractive">
+          {`
+            !function(f,b,e,v,n,t,s)
+            {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+            n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+            if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+            n.queue=[];t=b.createElement(e);t.async=!0;
+            t.src=v;s=b.getElementsByTagName(e)[0];
+            s.parentNode.insertBefore(t,s)}(window, document,'script',
+            'https://connect.facebook.net/en_US/fbevents.js');
+            fbq('init', '${META_PIXEL_ID}');
+            fbq('track', 'PageView');
+          `}
+        </Script>
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style={{ display: "none" }}
+            src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
+            alt=""
+          />
+        </noscript>
         {GTM_ID ? (
           <>
             <Script id="google-tag-manager" strategy="beforeInteractive">
