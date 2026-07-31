@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
 const BOOKING_CONVERSION_STORAGE_KEY = "surftmove-last-booking-conversion";
@@ -58,9 +58,11 @@ function getTrackingKey(stored: StoredBookingConversion | null, bookingIdFromUrl
 export default function BookingThankYouTracker() {
   const searchParams = useSearchParams();
   const bookingIdFromUrl = Number(searchParams.get("booking"));
+  const tracked = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (tracked.current) return;
 
     let stored = parseStoredBookingConversion(window.sessionStorage.getItem(BOOKING_CONVERSION_STORAGE_KEY));
     if (stored && Date.now() - stored.createdAt > MAX_CONVERSION_AGE_MS) {
@@ -94,8 +96,8 @@ export default function BookingThankYouTracker() {
         : stored?.bookingId ?? null;
 
     const metaConversionPayload: Record<string, unknown> = {
-      content_name: "Move booking request",
-      content_category: "moving_service",
+      content_name: "Moving Booking Completed",
+      content_category: "Booking",
       currency: "CAD",
     };
 
@@ -106,6 +108,8 @@ export default function BookingThankYouTracker() {
     if (stored?.bookingValue != null) {
       metaConversionPayload.value = stored.bookingValue;
     }
+
+    tracked.current = true;
 
     if (typeof window.fbq === "function") {
       window.fbq("track", "Lead", metaConversionPayload);
