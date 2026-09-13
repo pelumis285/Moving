@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import Script from "next/script";
 import ReviewsSection from "@/components/ReviewsSection";
 import { site } from "@/lib/site";
 import { LOAD_SIZES, formatCAD } from "@/lib/pricing";
@@ -30,6 +31,7 @@ const services = [
   { title: "Long-Distance Moves", text: "Toronto to Ottawa, Kingston to London, and routes across the province.", icon: "🚚" },
   { title: "Commercial & Office", text: "Minimal-downtime relocations for businesses and offices.", icon: "🏢" },
   { title: "Packing & Supplies", text: "Boxes, wrapping, and pro packing to keep your items safe.", icon: "📦" },
+  { title: "Driver Help For Rental Vehicles", text: "Already rented the truck, van, pickup, or car? Request a driver and we will review availability.", icon: "🛻" },
 ];
 
 const heroBadges = [
@@ -52,14 +54,76 @@ const serviceRoutes = [
   "Moves between major Ontario cities",
 ];
 
+const driverSupportPoints = [
+  "Request a driver for a rented moving truck, cargo van, pickup, or car",
+  "Add driver help to a full move or book a driver-only request",
+  "Share route details, dates, and vehicle notes in the dedicated driver-help form",
+  "Route distance is filled in automatically once both addresses are entered",
+];
+
 const heroImage = {
   src: "/surftmove-crew-hero.jpg",
   alt: "Surftmove movers carrying branded moving boxes inside a bright home",
 };
 
+const homeFaqs = [
+  {
+    q: "Do you handle both local and long-distance moves in Ontario?",
+    a: "Yes. Surftmove helps with local moving within Ontario cities and longer routes between cities like Toronto, Ottawa, Kingston, Barrie, Hamilton, London, Mississauga, and Peterborough.",
+  },
+  {
+    q: "Can I book a condo, apartment, or office move?",
+    a: "Yes. The booking flow is built for condos, apartments, houses, townhomes, and office relocations, including stairs, elevator access, long carries, and higher pickup floors.",
+  },
+  {
+    q: "How does your moving estimate work?",
+    a: "The estimate combines load size, labour, and travel distance. Customers can also add fragile items, heavy pieces, packing help, and negotiation notes so the final bill can be reviewed before confirmation.",
+  },
+  {
+    q: "Can I request a driver if I already rented the truck?",
+    a: "Yes. Use the dedicated driver-help form if you already rented a truck, cargo van, pickup, or car and need a driver to help with the route.",
+  },
+  {
+    q: "What happens after I submit a booking?",
+    a: "The booking goes to the admin team for review. Once approved, the customer receives confirmation details, billing information, and the approved moving date by email.",
+  },
+];
+
+const homeJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "FAQPage",
+      mainEntity: homeFaqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.q,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faq.a,
+        },
+      })),
+    },
+    {
+      "@type": "ItemList",
+      name: "Ontario cities served by Surftmove",
+      itemListElement: site.primaryCities.map((city, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: city,
+      })),
+    },
+  ],
+};
+
 export default function HomePage() {
   return (
     <>
+      <Script
+        id="home-json-ld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd) }}
+      />
+
       {/* Hero */}
       <section className="relative overflow-hidden bg-slate-900">
         <Image
@@ -168,12 +232,20 @@ export default function HomePage() {
                 We also handle custom Ontario routes beyond these featured cities. Use the booking form to
                 price your distance and add move details for review.
               </p>
-              <Link
-                href="/booking"
-                className="mt-4 inline-flex rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                Check Your Route
-              </Link>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href="/booking"
+                  className="inline-flex rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Check Your Route
+                </Link>
+                <Link
+                  href="/service-areas"
+                  className="inline-flex rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  See Full Service Areas
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -221,6 +293,46 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Driver help */}
+      <section id="driver-help" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
+        <div className="grid gap-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-600">Need A Driver?</p>
+            <h2 className="mt-3 text-3xl font-bold text-slate-900 sm:text-4xl">
+              Already rented the truck or vehicle? We can review driver help too.
+            </h2>
+            <p className="mt-4 max-w-2xl text-slate-600">
+              If you already have a rental truck, cargo van, pickup, or car and need someone to drive it,
+              you can request driver support directly through the dedicated driver-help form. The route
+              distance auto-calculates into the estimate box so we can review the trip details and prepare
+              your estimate faster.
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {driverSupportPoints.map((point) => (
+                <div key={point} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-semibold text-slate-900">{point}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-slate-900 p-6 text-white shadow-lg sm:p-8">
+            <p className="text-sm font-semibold uppercase tracking-wide text-red-300">Driver Help Requests</p>
+            <h3 className="mt-3 text-2xl font-bold">Book driver support on its own dedicated form.</h3>
+            <p className="mt-4 text-sm leading-relaxed text-slate-200">
+              Choose `Move + driver help` if you want our crew and a driver for a rented vehicle, or choose
+              `Driver help only` if the main thing you need is somebody to drive the rental for you.
+            </p>
+            <Link
+              href="/driver-help"
+              className="mt-6 inline-flex rounded-lg bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              Request Driver Help
+            </Link>
           </div>
         </div>
       </section>
@@ -276,6 +388,31 @@ export default function HomePage() {
       </section>
 
       <ReviewsSection />
+
+      {/* FAQ */}
+      <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:py-20">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-600">Moving FAQ</p>
+          <h2 className="mt-3 text-3xl font-bold text-slate-900 sm:text-4xl">
+            Quick answers customers usually need before booking
+          </h2>
+          <p className="mt-3 text-slate-600">
+            Clear answers help both customers and search engines understand exactly what services you
+            offer, where you operate, and how the booking process works.
+          </p>
+        </div>
+        <div className="mt-10 space-y-4">
+          {homeFaqs.map((faq) => (
+            <details key={faq.q} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left font-semibold text-slate-900">
+                <span>{faq.q}</span>
+                <span className="text-red-600 transition group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">{faq.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
 
       {/* CTA */}
       <section className="bg-red-600">

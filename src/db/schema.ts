@@ -7,7 +7,10 @@ export const bookings = pgTable("bookings", {
   phone: varchar("phone", { length: 40 }).notNull(),
   origin: text("origin").notNull(),
   destination: text("destination").notNull(),
+  serviceType: varchar("service_type", { length: 40 }).default("moving").notNull(),
   loadSize: varchar("load_size", { length: 60 }).notNull(),
+  driverVehicleType: varchar("driver_vehicle_type", { length: 40 }),
+  driverRequestNotes: text("driver_request_notes"),
   moveDate: varchar("move_date", { length: 40 }).notNull(),
   distanceKm: doublePrecision("distance_km").default(0),
   fragileItems: integer("fragile_items").default(0).notNull(),
@@ -57,9 +60,31 @@ export const contacts = pgTable("contacts", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const driverProfiles = pgTable("driver_profiles", {
+  id: serial("id").primaryKey(),
+  fullName: varchar("full_name", { length: 160 }).notNull(),
+  email: varchar("email", { length: 200 }).notNull(),
+  phone: varchar("phone", { length: 40 }).notNull(),
+  city: varchar("city", { length: 160 }).notNull(),
+  serviceArea: varchar("service_area", { length: 200 }).notNull(),
+  licenseClass: varchar("license_class", { length: 80 }).notNull(),
+  yearsExperience: integer("years_experience").default(0).notNull(),
+  pricePerKm: numeric("price_per_km", { precision: 10, scale: 2 }).notNull(),
+  vehicleTypes: text("vehicle_types").notNull(),
+  availableForLongDistance: boolean("available_for_long_distance").default(false).notNull(),
+  weekendAvailability: boolean("weekend_availability").default(false).notNull(),
+  bio: text("bio").notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  adminNotes: text("admin_notes"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type Booking = typeof bookings.$inferSelect;
 export type NewBooking = typeof bookings.$inferInsert;
 export type Contact = typeof contacts.$inferSelect;
 export type NewContact = typeof contacts.$inferInsert;
 export type Review = typeof reviews.$inferSelect;
 export type NewReview = typeof reviews.$inferInsert;
+export type DriverProfile = typeof driverProfiles.$inferSelect;
+export type NewDriverProfile = typeof driverProfiles.$inferInsert;

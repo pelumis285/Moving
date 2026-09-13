@@ -13,10 +13,15 @@ import { estimateDistanceKm as estimateRouteDistanceKm } from "@/lib/distance";
 import { formatDistanceKm, parseDistanceKm } from "@/lib/distance-format";
 import { isDateBeforeTodayInSiteTimeZone } from "@/lib/move-date";
 import {
-  calculateDetailedPrice,
+  calculateBookingEstimate,
   formatCAD,
+  getDriverVehicleLabel,
+  getServiceTypeLabel,
+  isDriverOnlyService,
   normalizeBuildingType,
+  normalizeDriverVehicleType,
   normalizeLongCarry,
+  normalizeServiceType,
 } from "@/lib/pricing";
 import { site } from "@/lib/site";
 
@@ -28,7 +33,10 @@ type Body = {
   phone?: string;
   origin?: string;
   destination?: string;
+  serviceType?: string;
   loadSize?: string;
+  driverVehicleType?: string;
+  driverRequestNotes?: string;
   moveDate?: string;
   distanceKm?: number;
   fragileItems?: number;
@@ -62,7 +70,10 @@ export async function POST(request: Request) {
   const phone = (body.phone ?? "").trim();
   const origin = (body.origin ?? "").trim();
   const destination = (body.destination ?? "").trim();
+  const serviceType = normalizeServiceType(body.serviceType ?? "");
   const loadSize = (body.loadSize ?? "").trim();
+  const driverVehicleType = normalizeDriverVehicleType(body.driverVehicleType ?? "");
+  const driverRequestNotes = (body.driverRequestNotes ?? "").trim();
   const requestedMoveDate = (body.moveDate ?? "").trim();
   const normalizedMoveDate = normalizeMoveDate(requestedMoveDate);
   const notes = (body.notes ?? "").trim();
@@ -85,7 +96,7 @@ export async function POST(request: Request) {
   if (phone.length < 7) errors.push("A valid phone number is required.");
   if (!origin) errors.push("Origin address is required.");
   if (!destination) errors.push("Destination address is required.");
-  if (!loadSize) errors.push("Load size is required.");
+  if (!loadSize && !isDriverOnlyService(serviceType)) errors.push("Load size is required.");
   if (!requestedMoveDate) errors.push("Move date is required.");
   if (requestedMoveDate && !normalizedMoveDate) errors.push("A valid move date is required.");
   if (normalizedMoveDate && isDateBeforeTodayInSiteTimeZone(normalizedMoveDate)) {
@@ -97,6 +108,7 @@ export async function POST(request: Request) {
   }
 
   const moveDate = normalizedMoveDate!;
+  const resolvedLoadSize = isDriverOnlyService(serviceType) ? "driver-only" : loadSize;
 
   if (distanceKm <= 0) {
     const estimate = await estimateRouteDistanceKm(origin, destination);
@@ -113,7 +125,9 @@ export async function POST(request: Request) {
     distanceKm = estimate.distanceKm;
   }
 
-  const quote = calculateDetailedPrice(loadSize, distanceKm, {
+  const estimate = calculateBookingEstimate(serviceType, resolvedLoadSize, distanceKm, {
+    origin,
+    destination,
     fragileItems,
     heavyItems,
     stairFlights,
@@ -124,7 +138,7 @@ export async function POST(request: Request) {
     buildingType,
     carryFloor,
   });
-  const estimatedCost = quote ? quote.total : 0;
+  const estimatedCost = estimate?.total ?? 0;
 
   if (!isDatabaseConfigured()) {
     return Response.json(
@@ -151,7 +165,10 @@ export async function POST(request: Request) {
           phone,
           origin,
           destination,
-          loadSize,
+          serviceType,
+          loadSize: resolvedLoadSize,
+          driverVehicleType: serviceType === "moving" ? null : driverVehicleType,
+          driverRequestNotes: serviceType === "moving" ? null : driverRequestNotes || null,
           moveDate,
           distanceKm,
           fragileItems,
@@ -197,6 +214,9 @@ export async function POST(request: Request) {
       longCarry,
       buildingType,
       carryFloor,
+      serviceType,
+      driverVehicleType: serviceType === "moving" ? null : driverVehicleType,
+      driverRequestNotes: serviceType === "moving" ? null : driverRequestNotes || null,
       targetBudget,
       negotiationNotes,
     },
@@ -206,16 +226,26 @@ export async function POST(request: Request) {
     .join("");
 
   const html = `
-    <h2>New Move Booking Request #${inserted?.id ?? ""}</h2>
+    <h2>${escapeHtml(serviceType === "driver-only" ? "New Driver Help Request" : "New Move Booking Request")} #${inserted?.id ?? ""}</h2>
     <p><strong>Name:</strong> ${escapeHtml(fullName)}</p>
     <p><strong>Email:</strong> ${escapeHtml(email)}</p>
     <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
+    <p><strong>Service requested:</strong> ${escapeHtml(getServiceTypeLabel(serviceType))}</p>
     <p><strong>Origin:</strong> ${escapeHtml(origin)}</p>
     <p><strong>Destination:</strong> ${escapeHtml(destination)}</p>
-    <p><strong>Load size:</strong> ${escapeHtml(quote?.loadLabel ?? loadSize)}</p>
+    ${
+      estimate?.moveQuote
+        ? `<p><strong>Load size:</strong> ${escapeHtml(estimate.moveQuote.loadLabel)}</p>`
+        : `<p><strong>Vehicle to drive:</strong> ${escapeHtml(getDriverVehicleLabel(driverVehicleType))}</p>`
+    }
     <p><strong>Move date:</strong> ${escapeHtml(moveDate)}</p>
     <p><strong>Distance:</strong> ${formatDistanceKm(distanceKm)}</p>
-    <p><strong>Estimated total:</strong> ${formatCAD(estimatedCost)} (incl. HST)</p>
+    ${
+      estimate?.driverFee
+        ? `<p><strong>Estimated driver fee:</strong> ${formatCAD(estimate.driverFee.fee)} based on ${formatDistanceKm(estimate.driverFee.billableKm)}</p>`
+        : ""
+    }
+    <p><strong>Estimated total:</strong> ${formatCAD(estimatedCost)}</p>
     ${quoteDetailsHtml ? `<h3>Quote factors</h3>${quoteDetailsHtml}` : ""}
     ${notes ? `<p><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
     <hr/>
@@ -223,7 +253,7 @@ export async function POST(request: Request) {
   `;
 
   const emailResult = await sendOwnerEmail({
-    subject: `New Booking Request from ${fullName}`,
+    subject: `${serviceType === "driver-only" ? "New Driver Help Request" : "New Booking Request"} from ${fullName}`,
     html,
     replyTo: email,
   });

@@ -4,10 +4,13 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BUILDING_TYPE_OPTIONS,
+  DRIVER_VEHICLE_OPTIONS,
   LOAD_SIZES,
   LONG_CARRY_OPTIONS,
-  calculateDetailedPrice,
+  SERVICE_TYPE_OPTIONS,
+  calculateBookingEstimate,
   formatCAD,
+  normalizeServiceType,
 } from "@/lib/pricing";
 import { formatDistanceKm } from "@/lib/distance-format";
 import { getTodayInSiteTimeZone } from "@/lib/move-date";
@@ -24,7 +27,10 @@ const initialForm = {
   phone: "",
   origin: "",
   destination: "",
+  serviceType: "moving",
   loadSize: "1-bedroom",
+  driverVehicleType: "box-truck",
+  driverRequestNotes: "",
   moveDate: "",
   distanceKm: "",
   fragileItems: "0",
@@ -49,10 +55,21 @@ type AddressSuggestion = {
   value: string;
 };
 const BOOKING_CONVERSION_STORAGE_KEY = "surftmove-last-booking-conversion";
+type BookingFormMode = "moving" | "driver-help";
+type BookingFormProps = {
+  mode?: BookingFormMode;
+};
 
-export default function BookingForm() {
+function createInitialForm(mode: BookingFormMode): FormState {
+  return {
+    ...initialForm,
+    serviceType: mode === "driver-help" ? "moving-with-driver" : "moving",
+  };
+}
+
+export default function BookingForm({ mode = "moving" }: BookingFormProps) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<FormState>(() => createInitialForm(mode));
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [distanceStatus, setDistanceStatus] = useState<"idle" | "estimating" | "ready" | "error">("idle");
@@ -66,12 +83,21 @@ export default function BookingForm() {
     origin: "idle",
     destination: "idle",
   });
+  const serviceType = mode === "moving" ? "moving" : normalizeServiceType(form.serviceType);
+  const driverHelpPage = mode === "driver-help";
+  const selectableServiceTypeOptions = SERVICE_TYPE_OPTIONS.filter((option) =>
+    driverHelpPage ? option.key !== "moving" : option.key === "moving",
+  );
+  const driverServiceSelected = serviceType !== "moving";
+  const driverOnlyService = serviceType === "driver-only";
   const canAutoEstimateDistance = form.origin.trim().length >= 6 && form.destination.trim().length >= 6;
   const activeAddressQuery = activeAddressField ? form[activeAddressField].trim() : "";
 
-  const quote = useMemo(
+  const estimate = useMemo(
     () =>
-      calculateDetailedPrice(form.loadSize, Number(form.distanceKm) || 0, {
+      calculateBookingEstimate(serviceType, form.loadSize, Number(form.distanceKm) || 0, {
+        origin: form.origin,
+        destination: form.destination,
         fragileItems: Number(form.fragileItems) || 0,
         heavyItems: Number(form.heavyItems) || 0,
         stairFlights: Number(form.stairFlights) || 0,
@@ -82,8 +108,10 @@ export default function BookingForm() {
         buildingType: form.buildingType,
         carryFloor: Number(form.carryFloor) || 0,
       }),
-    [form],
+    [form, serviceType],
   );
+  const moveQuote = estimate?.moveQuote ?? null;
+  const driverQuote = estimate?.driverFee ?? null;
 
   function updateText(field: TextField, value: string) {
     if ((field === "origin" || field === "destination") && value.trim().length < 1) {
@@ -211,8 +239,8 @@ export default function BookingForm() {
         setDistanceStatus("ready");
         setDistanceMessage(
           data.source === "route"
-            ? `Distance updated automatically to ${formatDistanceKm(data.distanceKm)} from your origin and destination.`
-            : `Distance estimated at ${formatDistanceKm(data.distanceKm)} from the addresses above. You can still adjust it if needed.`,
+            ? `Distance updated automatically to ${formatDistanceKm(data.distanceKm)} and placed in the estimate box.`
+            : `Distance estimated at ${formatDistanceKm(data.distanceKm)} and placed in the estimate box. You can still adjust it if needed.`,
         );
       } catch (error) {
         if (controller.signal.aborted) {
@@ -222,7 +250,7 @@ export default function BookingForm() {
         setDistanceStatus("error");
         setDistanceMessage("We could not calculate the distance automatically. You can type it in manually.");
       }
-    }, 900);
+    }, 500);
 
     return () => {
       controller.abort();
@@ -241,11 +269,20 @@ export default function BookingForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          serviceType,
+          loadSize: driverOnlyService ? "driver-only" : form.loadSize,
+          driverVehicleType: driverServiceSelected ? form.driverVehicleType : "",
+          driverRequestNotes: driverServiceSelected ? form.driverRequestNotes : "",
           distanceKm: Number(form.distanceKm) || 0,
-          fragileItems: Number(form.fragileItems) || 0,
-          heavyItems: Number(form.heavyItems) || 0,
-          stairFlights: Number(form.stairFlights) || 0,
-          carryFloor: Number(form.carryFloor) || 0,
+          fragileItems: driverOnlyService ? 0 : Number(form.fragileItems) || 0,
+          heavyItems: driverOnlyService ? 0 : Number(form.heavyItems) || 0,
+          stairFlights: driverOnlyService ? 0 : Number(form.stairFlights) || 0,
+          elevatorAccess: driverOnlyService ? false : form.elevatorAccess,
+          packingHelp: driverOnlyService ? false : form.packingHelp,
+          assemblyHelp: driverOnlyService ? false : form.assemblyHelp,
+          longCarry: driverOnlyService ? "standard" : form.longCarry,
+          buildingType: driverOnlyService ? "house-ground" : form.buildingType,
+          carryFloor: driverOnlyService ? 0 : Number(form.carryFloor) || 0,
         }),
       });
       const data = await res.json();
@@ -257,7 +294,11 @@ export default function BookingForm() {
 
       setStatus("success");
       setMessage(
-        `Thank you, ${form.fullName.split(" ")[0]}! Your booking request was received. We'll review your move details, custom quote factors, and budget notes before confirming.`,
+        serviceType === "driver-only"
+          ? `Thank you, ${form.fullName.split(" ")[0]}! Your driver help request was received. We'll review the route, vehicle, availability, and final pricing before confirming.`
+          : serviceType === "moving-with-driver"
+            ? `Thank you, ${form.fullName.split(" ")[0]}! Your move plus driver-help request was received. We'll review the route, vehicle support, and final pricing before confirming.`
+          : `Thank you, ${form.fullName.split(" ")[0]}! Your booking request was received. We'll review your move details, custom quote factors, and budget notes before confirming.`,
       );
 
       if (typeof window !== "undefined") {
@@ -374,9 +415,9 @@ export default function BookingForm() {
         </div>
         <h3 className="text-xl font-bold text-slate-900">Booking Received!</h3>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">{message}</p>
-        {quote ? (
+        {estimate ? (
           <p className="mt-4 text-sm text-slate-700">
-            Your estimated quote: <strong>{formatCAD(quote.total)}</strong> (incl. HST)
+            Your estimated quote: <strong>{formatCAD(estimate.total)}</strong>
           </p>
         ) : null}
         <button
@@ -384,7 +425,7 @@ export default function BookingForm() {
           onClick={() => {
             setStatus("idle");
             setMessage("");
-            setForm(initialForm);
+            setForm(createInitialForm(mode));
           }}
           className="mt-6 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
         >
@@ -397,6 +438,90 @@ export default function BookingForm() {
   return (
     <form onSubmit={handleSubmit} className="grid gap-5 lg:grid-cols-3">
       <div className="grid gap-6 lg:col-span-2">
+        {driverHelpPage ? (
+          <section id="driver-help" className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <div className="max-w-2xl">
+              <h3 className="text-lg font-semibold text-slate-900">Choose Driver Support</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Pick the option that fits this trip. You can request a full move plus rented-vehicle
+                driver support, or book driver help only.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              {selectableServiceTypeOptions.map((option) => (
+                <label
+                  key={option.key}
+                  className={`flex cursor-pointer gap-3 rounded-2xl border p-4 text-sm transition ${
+                    serviceType === option.key
+                      ? "border-red-300 bg-red-50 text-slate-900"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="serviceType"
+                    className={checkboxClass}
+                    checked={serviceType === option.key}
+                    onChange={() => updateText("serviceType", option.key)}
+                  />
+                  <span>
+                    <strong className="block text-slate-900">{option.label}</strong>
+                    <span className="mt-1 block leading-relaxed">{option.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-red-100 bg-white p-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass} htmlFor="driverVehicleType">
+                    Vehicle needing a driver
+                  </label>
+                  <select
+                    id="driverVehicleType"
+                    className={inputClass}
+                    value={form.driverVehicleType}
+                    onChange={(event) => updateText("driverVehicleType", event.target.value)}
+                  >
+                    {DRIVER_VEHICLE_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {DRIVER_VEHICLE_OPTIONS.find((option) => option.key === form.driverVehicleType)?.description}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                  <p className="font-semibold text-slate-900">Route-based driver estimate</p>
+                  <p className="mt-2 leading-relaxed">
+                    Once both addresses are entered, we&apos;ll fill in the route distance automatically
+                    and prepare the driver estimate from there.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <label className={labelClass} htmlFor="driverRequestNotes">
+                  Driver request details
+                </label>
+                <textarea
+                  id="driverRequestNotes"
+                  rows={4}
+                  className={inputClass}
+                  value={form.driverRequestNotes}
+                  onChange={(event) => updateText("driverRequestNotes", event.target.value)}
+                  placeholder="Tell us about the rental vehicle, pickup time, where it needs to be driven, whether you need help with return/drop-off, and anything else we should know."
+                />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <label className={labelClass} htmlFor="fullName">
@@ -448,24 +573,33 @@ export default function BookingForm() {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-3">
-          <div>
-            <label className={labelClass} htmlFor="loadSize">
-              Load Size *
-            </label>
-            <select
-              id="loadSize"
-              className={inputClass}
-              value={form.loadSize}
-              onChange={(event) => updateText("loadSize", event.target.value)}
-              required
-            >
-              {LOAD_SIZES.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {driverOnlyService ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Driver-only request</p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                The route distance still auto-fills below, and we&apos;ll use it to prepare your estimate.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className={labelClass} htmlFor="loadSize">
+                Load Size *
+              </label>
+              <select
+                id="loadSize"
+                className={inputClass}
+                value={form.loadSize}
+                onChange={(event) => updateText("loadSize", event.target.value)}
+                required
+              >
+                {LOAD_SIZES.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className={labelClass} htmlFor="distanceKm">
               Est. Distance (km) *
@@ -513,114 +647,179 @@ export default function BookingForm() {
           <div className="max-w-2xl">
             <h3 className="text-lg font-semibold text-slate-900">Alternative Quote Details</h3>
             <p className="mt-1 text-sm text-slate-600">
-              Add the details that usually change pricing so we can prepare a more realistic quote and
-              work with your budget before confirming the move.
+              {driverOnlyService
+                ? "Add budget and negotiation details for the driver request. We will review them before confirming availability."
+                : "Add the details that usually change pricing so we can prepare a more realistic quote and work with your budget before confirming the move."}
             </p>
           </div>
 
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className={labelClass} htmlFor="fragileItems">
-                Fragile item count
-              </label>
-              <input
-                id="fragileItems"
-                type="number"
-                min={0}
-                className={inputClass}
-                value={form.fragileItems}
-                onChange={(event) => updateText("fragileItems", event.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="heavyItems">
-                Heavy / oversized items
-              </label>
-              <input
-                id="heavyItems"
-                type="number"
-                min={0}
-                className={inputClass}
-                value={form.heavyItems}
-                onChange={(event) => updateText("heavyItems", event.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="stairFlights">
-                Total stair flights
-              </label>
-              <input
-                id="stairFlights"
-                type="number"
-                min={0}
-                className={inputClass}
-                value={form.stairFlights}
-                onChange={(event) => updateText("stairFlights", event.target.value)}
-              />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="carryFloor">
-                Floor carrying from
-              </label>
-              <input
-                id="carryFloor"
-                type="number"
-                min={0}
-                className={inputClass}
-                value={form.carryFloor}
-                onChange={(event) => updateText("carryFloor", event.target.value)}
-                placeholder="0 for ground floor"
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Use the floor number where the crew will pick items up from.
-              </p>
-            </div>
-          </div>
+          {!driverOnlyService ? (
+            <>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className={labelClass} htmlFor="fragileItems">
+                    Fragile item count
+                  </label>
+                  <input
+                    id="fragileItems"
+                    type="number"
+                    min={0}
+                    className={inputClass}
+                    value={form.fragileItems}
+                    onChange={(event) => updateText("fragileItems", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor="heavyItems">
+                    Heavy / oversized items
+                  </label>
+                  <input
+                    id="heavyItems"
+                    type="number"
+                    min={0}
+                    className={inputClass}
+                    value={form.heavyItems}
+                    onChange={(event) => updateText("heavyItems", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor="stairFlights">
+                    Total stair flights
+                  </label>
+                  <input
+                    id="stairFlights"
+                    type="number"
+                    min={0}
+                    className={inputClass}
+                    value={form.stairFlights}
+                    onChange={(event) => updateText("stairFlights", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor="carryFloor">
+                    Floor carrying from
+                  </label>
+                  <input
+                    id="carryFloor"
+                    type="number"
+                    min={0}
+                    className={inputClass}
+                    value={form.carryFloor}
+                    onChange={(event) => updateText("carryFloor", event.target.value)}
+                    placeholder="0 for ground floor"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Use the floor number where the crew will pick items up from.
+                  </p>
+                </div>
+              </div>
 
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className={labelClass} htmlFor="buildingType">
-                Pickup building type
-              </label>
-              <select
-                id="buildingType"
-                className={inputClass}
-                value={form.buildingType}
-                onChange={(event) => updateText("buildingType", event.target.value)}
-              >
-                {BUILDING_TYPE_OPTIONS.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-slate-500">
-                {BUILDING_TYPE_OPTIONS.find((option) => option.key === form.buildingType)?.description}
-              </p>
-            </div>
+              <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className={labelClass} htmlFor="buildingType">
+                    Pickup building type
+                  </label>
+                  <select
+                    id="buildingType"
+                    className={inputClass}
+                    value={form.buildingType}
+                    onChange={(event) => updateText("buildingType", event.target.value)}
+                  >
+                    {BUILDING_TYPE_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {BUILDING_TYPE_OPTIONS.find((option) => option.key === form.buildingType)?.description}
+                  </p>
+                </div>
 
-            <div>
-              <label className={labelClass} htmlFor="longCarry">
-                Access / long carry
-              </label>
-              <select
-                id="longCarry"
-                className={inputClass}
-                value={form.longCarry}
-                onChange={(event) => updateText("longCarry", event.target.value)}
-              >
-                {LONG_CARRY_OPTIONS.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-slate-500">
-                {LONG_CARRY_OPTIONS.find((option) => option.key === form.longCarry)?.description}
-              </p>
-            </div>
+                <div>
+                  <label className={labelClass} htmlFor="longCarry">
+                    Access / long carry
+                  </label>
+                  <select
+                    id="longCarry"
+                    className={inputClass}
+                    value={form.longCarry}
+                    onChange={(event) => updateText("longCarry", event.target.value)}
+                  >
+                    {LONG_CARRY_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {LONG_CARRY_OPTIONS.find((option) => option.key === form.longCarry)?.description}
+                  </p>
+                </div>
 
-            <div>
+                <div>
+                  <label className={labelClass} htmlFor="targetBudget">
+                    Target budget (optional)
+                  </label>
+                  <input
+                    id="targetBudget"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className={inputClass}
+                    value={form.targetBudget}
+                    onChange={(event) => updateText("targetBudget", event.target.value)}
+                    placeholder="Example: 1450"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Share the range you are hoping for and we&apos;ll review it with your move details.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className={checkboxClass}
+                    checked={form.elevatorAccess}
+                    onChange={(event) => updateToggle("elevatorAccess", event.target.checked)}
+                  />
+                  <span>
+                    <strong className="block text-slate-900">Elevator access</strong>
+                    Let us know if either location has an elevator available.
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className={checkboxClass}
+                    checked={form.packingHelp}
+                    onChange={(event) => updateToggle("packingHelp", event.target.checked)}
+                  />
+                  <span>
+                    <strong className="block text-slate-900">Packing help</strong>
+                    Add professional packing support and supplies to the request.
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className={checkboxClass}
+                    checked={form.assemblyHelp}
+                    onChange={(event) => updateToggle("assemblyHelp", event.target.checked)}
+                  />
+                  <span>
+                    <strong className="block text-slate-900">Assembly help</strong>
+                    We can handle furniture disassembly and reassembly if needed.
+                  </span>
+                </label>
+              </div>
+            </>
+          ) : (
+            <div className="mt-5">
               <label className={labelClass} htmlFor="targetBudget">
                 Target budget (optional)
               </label>
@@ -632,54 +831,13 @@ export default function BookingForm() {
                 className={inputClass}
                 value={form.targetBudget}
                 onChange={(event) => updateText("targetBudget", event.target.value)}
-                placeholder="Example: 1450"
+                placeholder="Example: 650"
               />
               <p className="mt-1 text-xs text-slate-500">
-                Share the range you are hoping for and we&apos;ll review it with your move details.
+                Share the amount you are hoping for and we&apos;ll review it with the route and vehicle details.
               </p>
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                className={checkboxClass}
-                checked={form.elevatorAccess}
-                onChange={(event) => updateToggle("elevatorAccess", event.target.checked)}
-              />
-              <span>
-                <strong className="block text-slate-900">Elevator access</strong>
-                Let us know if either location has an elevator available.
-              </span>
-            </label>
-
-            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                className={checkboxClass}
-                checked={form.packingHelp}
-                onChange={(event) => updateToggle("packingHelp", event.target.checked)}
-              />
-              <span>
-                <strong className="block text-slate-900">Packing help</strong>
-                Add professional packing support and supplies to the request.
-              </span>
-            </label>
-
-            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                className={checkboxClass}
-                checked={form.assemblyHelp}
-                onChange={(event) => updateToggle("assemblyHelp", event.target.checked)}
-              />
-              <span>
-                <strong className="block text-slate-900">Assembly help</strong>
-                We can handle furniture disassembly and reassembly if needed.
-              </span>
-            </label>
-          </div>
+          )}
 
           <div className="mt-5">
             <label className={labelClass} htmlFor="negotiationNotes">
@@ -719,48 +877,76 @@ export default function BookingForm() {
           disabled={status === "submitting" || distanceStatus === "estimating"}
           className="inline-flex items-center justify-center rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {status === "submitting" ? "Submitting…" : "Request My Booking"}
+          {status === "submitting"
+            ? "Submitting…"
+            : driverHelpPage
+              ? "Request Driver Help"
+              : "Request My Booking"}
         </button>
       </div>
 
       <aside className="lg:col-span-1">
         <div className="sticky top-24 rounded-2xl border border-slate-200 bg-slate-50 p-6">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Live Estimate</h3>
-          {quote ? (
+          {estimate ? (
             <>
-              <p className="mt-3 text-3xl font-extrabold text-slate-900">{formatCAD(quote.total)}</p>
-              <p className="text-xs text-slate-500">Estimated total incl. 13% HST</p>
+              <p className="mt-3 text-3xl font-extrabold text-slate-900">{formatCAD(estimate.total)}</p>
+              <p className="text-xs text-slate-500">
+                {driverOnlyService
+                  ? "Estimated driver support total for this route"
+                  : driverServiceSelected
+                    ? "Estimated total including moving service and driver support"
+                    : "Estimated total incl. 13% HST"}
+              </p>
 
               <dl className="mt-5 space-y-2 text-sm">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-slate-600">{quote.loadLabel}</dt>
-                  <dd className="font-medium text-slate-900">{formatCAD(quote.baseFee)}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-slate-600">
-                    Labour ({quote.movers} movers × {quote.estHours}h)
-                  </dt>
-                  <dd className="font-medium text-slate-900">{formatCAD(quote.labour)}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-slate-600">Travel</dt>
-                  <dd className="font-medium text-slate-900">{formatCAD(quote.travelCost)}</dd>
-                </div>
+                {moveQuote ? (
+                  <>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-slate-600">{moveQuote.loadLabel}</dt>
+                      <dd className="font-medium text-slate-900">{formatCAD(moveQuote.baseFee)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-slate-600">
+                        Labour ({moveQuote.movers} movers × {moveQuote.estHours}h)
+                      </dt>
+                      <dd className="font-medium text-slate-900">{formatCAD(moveQuote.labour)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-slate-600">Travel</dt>
+                      <dd className="font-medium text-slate-900">{formatCAD(moveQuote.travelCost)}</dd>
+                    </div>
 
-                {quote.adjustments.map((adjustment) => (
-                  <div key={adjustment.label} className="flex justify-between gap-4">
-                    <dt className="text-slate-600">{adjustment.label}</dt>
-                    <dd className="font-medium text-slate-900">{formatCAD(adjustment.amount)}</dd>
-                  </div>
-                ))}
+                    {moveQuote.adjustments.map((adjustment) => (
+                      <div key={adjustment.label} className="flex justify-between gap-4">
+                        <dt className="text-slate-600">{adjustment.label}</dt>
+                        <dd className="font-medium text-slate-900">{formatCAD(adjustment.amount)}</dd>
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between gap-4 border-t border-slate-200 pt-2">
+                      <dt className="text-slate-600">Moving subtotal</dt>
+                      <dd className="font-medium text-slate-900">{formatCAD(moveQuote.subtotal)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-slate-600">Moving HST (13%)</dt>
+                      <dd className="font-medium text-slate-900">{formatCAD(moveQuote.hst)}</dd>
+                    </div>
+                  </>
+                ) : null}
+
+                {driverQuote ? (
+                  <>
+                    <div className={`flex justify-between gap-4 ${moveQuote ? "border-t border-slate-200 pt-2" : ""}`}>
+                      <dt className="text-slate-600">Driver fee</dt>
+                      <dd className="font-medium text-slate-900">{formatCAD(driverQuote.fee)}</dd>
+                    </div>
+                  </>
+                ) : null}
 
                 <div className="flex justify-between gap-4 border-t border-slate-200 pt-2">
-                  <dt className="text-slate-600">Subtotal</dt>
-                  <dd className="font-medium text-slate-900">{formatCAD(quote.subtotal)}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-slate-600">HST (13%)</dt>
-                  <dd className="font-medium text-slate-900">{formatCAD(quote.hst)}</dd>
+                  <dt className="text-slate-900 font-semibold">Estimated total</dt>
+                  <dd className="font-semibold text-slate-900">{formatCAD(estimate.total)}</dd>
                 </div>
               </dl>
 
@@ -777,7 +963,16 @@ export default function BookingForm() {
               </p>
             </>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">Select a load size to see your estimate.</p>
+            <div className="mt-3 space-y-3">
+              <p className="text-sm font-semibold text-slate-900">
+                {driverOnlyService ? "Enter the route to see your driver estimate." : "Select a load size to see your estimate."}
+              </p>
+              <p className="text-sm leading-relaxed text-slate-600">
+                {driverOnlyService
+                  ? "Once both addresses are filled, the system will auto-calculate the route distance and prepare the estimate."
+                  : "Choose a load size and enter your trip details to generate a live estimate."}
+              </p>
+            </div>
           )}
         </div>
       </aside>

@@ -6,11 +6,12 @@ import {
   formatDateTime,
   formatMoveDate,
   getEffectiveBillAmount,
+  getMoveConditionDetailsList,
   getQuoteDetailsList,
   parseMoney,
 } from "@/lib/bookings";
 import { formatDistanceKm } from "@/lib/distance-format";
-import { calculateDetailedPrice, formatCAD } from "@/lib/pricing";
+import { calculateBookingEstimate, formatCAD, getDriverVehicleLabel, getServiceTypeLabel, normalizeServiceType } from "@/lib/pricing";
 import { site } from "@/lib/site";
 
 type PdfBooking = Pick<
@@ -21,7 +22,10 @@ type PdfBooking = Pick<
   | "phone"
   | "origin"
   | "destination"
+  | "serviceType"
   | "loadSize"
+  | "driverVehicleType"
+  | "driverRequestNotes"
   | "moveDate"
   | "distanceKm"
   | "fragileItems"
@@ -333,8 +337,11 @@ export async function createBookingPdf(booking: PdfBooking) {
   const logoBytes = await getLogoBytes();
   const logoImage = logoBytes ? await pdf.embedPng(logoBytes) : null;
   const bookingReference = getBookingReference(booking.id);
-  const pricing = calculateDetailedPrice(booking.loadSize, booking.distanceKm ?? 0, booking);
-  const serviceConditionDetails = getQuoteDetailsList(booking);
+  const serviceType = normalizeServiceType(booking.serviceType);
+  const estimate = calculateBookingEstimate(serviceType, booking.loadSize, booking.distanceKm ?? 0, booking);
+  const pricing = estimate?.moveQuote ?? null;
+  const driverFee = estimate?.driverFee ?? null;
+  const serviceConditionDetails = getMoveConditionDetailsList(booking);
   const quoteDetails = getQuoteDetailsList(booking, { includeNegotiation: true });
   const finalBill = getEffectiveBillAmount(booking);
   const estimatedQuote = parseMoney(booking.estimatedCost) ?? 0;
@@ -523,10 +530,14 @@ export async function createBookingPdf(booking: PdfBooking) {
   ];
 
   const moveRows: SectionRow[] = [
+    { label: "Service", value: getServiceTypeLabel(serviceType) },
     { label: "Move date", value: formatMoveDate(booking.moveDate) },
     { label: "Origin", value: booking.origin },
     { label: "Destination", value: booking.destination },
     { label: "Distance", value: formatDistanceKm(booking.distanceKm ?? 0) },
+    ...(serviceType !== "moving"
+      ? [{ label: "Vehicle", value: getDriverVehicleLabel(booking.driverVehicleType) }]
+      : []),
     { label: "Status", value: statusLabel },
   ];
 
@@ -554,13 +565,14 @@ export async function createBookingPdf(booking: PdfBooking) {
 
   const serviceRows: SectionRow[] = pricing
     ? [
+        { label: "Service requested", value: getServiceTypeLabel(serviceType) },
         { label: "Load size", value: pricing.loadLabel },
+        ...(serviceType !== "moving"
+          ? [{ label: "Vehicle to drive", value: getDriverVehicleLabel(booking.driverVehicleType) }]
+          : []),
         { label: "Crew & labour", value: `${pricing.movers} movers · ~${pricing.estHours} hrs at ${formatCAD(pricing.hourlyRate)}/hr` },
         { label: "Travel", value: `${formatDistanceKm(pricing.billableKm)} · ${formatCAD(pricing.travelCost)}` },
-        ...pricing.travelBands.map((band) => ({
-          label: band.label,
-          value: `${formatDistanceKm(band.distanceKm)} @ ${formatCAD(band.rate)}/km = ${formatCAD(band.cost)}`,
-        })),
+        ...(driverFee ? [{ label: "Driver fee", value: formatCAD(driverFee.fee) }] : []),
         {
           label: "Access conditions",
           value:
@@ -570,20 +582,20 @@ export async function createBookingPdf(booking: PdfBooking) {
         },
       ]
     : [
-        { label: "Load size", value: booking.loadSize },
+        { label: "Service requested", value: getServiceTypeLabel(serviceType) },
+        { label: "Vehicle to drive", value: getDriverVehicleLabel(booking.driverVehicleType) },
         { label: "Travel", value: `${formatDistanceKm(booking.distanceKm ?? 0)} total route` },
+        ...(driverFee ? [{ label: "Driver fee", value: formatCAD(driverFee.fee) }] : []),
         {
-          label: "Access conditions",
-          value:
-            serviceConditionDetails.length > 0
-              ? serviceConditionDetails.map((detail) => detail.value).join(" · ")
-              : "Standard access",
+          label: "Pricing status",
+          value: finalBill > 0 ? "Driver fee confirmed by admin." : "Driver estimate pending final review.",
         },
       ];
 
   const billingRows: SectionRow[] = [
     { label: "Final bill", value: formatCAD(finalBill) },
-    { label: "Estimated quote", value: formatCAD(estimatedQuote) },
+    ...(pricing || estimatedQuote > 0 ? [{ label: "Estimated quote", value: formatCAD(estimatedQuote) }] : []),
+    ...(driverFee ? [{ label: "Estimated driver fee", value: formatCAD(driverFee.fee) }] : []),
     ...(pricing
       ? [
           { label: "Base handling", value: formatCAD(pricing.baseFee) },
@@ -617,13 +629,19 @@ export async function createBookingPdf(booking: PdfBooking) {
   });
   cursorY -= secondRowHeight + SECTION_GAP;
 
-  const quoteRows: SectionRow[] =
-    pricing?.adjustments.length
-      ? pricing.adjustments.map((adjustment) => ({
-          label: adjustment.label,
-          value: formatCAD(adjustment.amount),
-        }))
-      : [{ label: "Adjustments", value: "No custom surcharges were applied to this booking." }];
+  const quoteRows: SectionRow[] = pricing?.adjustments.length
+    ? pricing.adjustments.map((adjustment) => ({
+        label: adjustment.label,
+        value: formatCAD(adjustment.amount),
+      }))
+    : [
+        {
+          label: pricing ? "Adjustments" : "Quote review",
+          value: pricing
+            ? "No custom surcharges were applied to this booking."
+            : "Driver support details were reviewed and included in this booking.",
+        },
+      ];
 
   if (quoteDetails.length > 0 && !pricing?.adjustments.length) {
     quoteRows.push(...quoteDetails);

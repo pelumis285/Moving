@@ -69,20 +69,93 @@ export const metadata: Metadata = {
 
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "MovingCompany",
-  name: site.name,
-  image: `${site.url}/logo-surftmove-red.png`,
-  url: site.url,
-  telephone: site.phone,
-  email: site.publicEmail,
-  address: {
-    "@type": "PostalAddress",
-    addressRegion: "ON",
-    addressCountry: "CA",
-  },
-  areaServed: "Ontario, Canada",
-  priceRange: "$$",
-  openingHours: "Mo-Sa 07:00-20:00",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${site.url}#organization`,
+      name: site.name,
+      url: site.url,
+      logo: `${site.url}/logo-surftmove-red.png`,
+      email: site.publicEmail,
+      telephone: site.phone,
+      foundingDate: String(site.foundedYear),
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          telephone: site.phone,
+          email: site.publicEmail,
+          contactType: "customer service",
+          areaServed: "CA-ON",
+          availableLanguage: ["en-CA"],
+        },
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${site.url}#website`,
+      url: site.url,
+      name: site.name,
+      description: site.tagline,
+      publisher: {
+        "@id": `${site.url}#organization`,
+      },
+      inLanguage: "en-CA",
+    },
+    {
+      "@type": "MovingCompany",
+      "@id": `${site.url}#moving-company`,
+      name: site.name,
+      url: site.url,
+      image: `${site.url}/logo-surftmove-red.png`,
+      description:
+        "Surftmove provides residential, long-distance, condo, office, and rental-truck driver help across Ontario.",
+      telephone: site.phone,
+      email: site.publicEmail,
+      priceRange: "$$",
+      slogan: site.tagline,
+      areaServed: site.primaryCities.map((city) => ({
+        "@type": "City",
+        name: city,
+        containedInPlace: {
+          "@type": "AdministrativeArea",
+          name: "Ontario",
+        },
+      })),
+      address: {
+        "@type": "PostalAddress",
+        addressRegion: "ON",
+        addressCountry: "CA",
+      },
+      openingHoursSpecification: [
+        {
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          opens: "07:00",
+          closes: "20:00",
+        },
+      ],
+      knowsAbout: [
+        "Residential moving",
+        "Condo moves",
+        "Apartment moving",
+        "Office relocation",
+        "Long-distance Ontario moves",
+        "Packing help",
+        "Rental truck driver assistance",
+      ],
+      hasOfferCatalog: {
+        "@type": "OfferCatalog",
+        name: "Moving services",
+        itemListElement: site.primaryServices.map((serviceName) => ({
+          "@type": "Offer",
+          itemOffered: {
+            "@type": "Service",
+            name: serviceName,
+          },
+        })),
+      },
+    },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

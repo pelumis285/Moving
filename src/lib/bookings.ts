@@ -5,10 +5,13 @@ import { type Booking, bookings } from "@/db/schema";
 import { escapeHtml } from "@/lib/email";
 import { formatDistanceKm, roundDistanceKm } from "@/lib/distance-format";
 import {
-  calculateDetailedPrice,
+  calculateBookingEstimate,
   formatCAD,
   getBuildingTypeLabel,
+  getDriverVehicleLabel,
   getLongCarryLabel,
+  getServiceTypeLabel,
+  normalizeServiceType,
 } from "@/lib/pricing";
 import { site } from "@/lib/site";
 
@@ -24,7 +27,10 @@ type BookingEmailShape = Pick<
   | "phone"
   | "origin"
   | "destination"
+  | "serviceType"
   | "loadSize"
+  | "driverVehicleType"
+  | "driverRequestNotes"
   | "moveDate"
   | "distanceKm"
   | "fragileItems"
@@ -155,7 +161,7 @@ export function getEffectiveBillAmount(booking: Pick<Booking, "estimatedCost" | 
   return parseMoney(booking.finalCost) ?? parseMoney(booking.estimatedCost) ?? 0;
 }
 
-type QuoteDetailsInput = {
+type MoveConditionInput = {
   fragileItems: number;
   heavyItems: number;
   stairFlights: number;
@@ -165,14 +171,17 @@ type QuoteDetailsInput = {
   longCarry: string | null | undefined;
   buildingType: string | null | undefined;
   carryFloor: number;
+};
+
+type QuoteDetailsInput = MoveConditionInput & {
+  serviceType: string | null | undefined;
+  driverVehicleType: string | null | undefined;
+  driverRequestNotes: string | null | undefined;
   targetBudget: string | number | null | undefined;
   negotiationNotes: string | null | undefined;
 };
 
-export function getQuoteDetailsList(
-  booking: QuoteDetailsInput,
-  options?: { includeNegotiation?: boolean },
-) {
+export function getMoveConditionDetailsList(booking: MoveConditionInput) {
   const details: Array<{ label: string; value: string }> = [];
 
   if (booking.fragileItems > 0) {
@@ -211,6 +220,27 @@ export function getQuoteDetailsList(
     details.push({ label: "Pickup floor", value: String(booking.carryFloor) });
   }
 
+  return details;
+}
+
+export function getQuoteDetailsList(booking: QuoteDetailsInput, options?: { includeNegotiation?: boolean }) {
+  const details: Array<{ label: string; value: string }> = [];
+  const serviceType = normalizeServiceType(booking.serviceType);
+
+  if (serviceType !== "moving") {
+    details.push({ label: "Service requested", value: getServiceTypeLabel(serviceType) });
+  }
+
+  if (serviceType !== "moving" || booking.driverVehicleType) {
+    details.push({ label: "Vehicle to drive", value: getDriverVehicleLabel(booking.driverVehicleType) });
+  }
+
+  details.push(...getMoveConditionDetailsList(booking));
+
+  if (booking.driverRequestNotes) {
+    details.push({ label: "Driver request notes", value: booking.driverRequestNotes });
+  }
+
   const targetBudget = parseMoney(booking.targetBudget);
   if (options?.includeNegotiation && targetBudget != null) {
     details.push({ label: "Target budget", value: formatCAD(targetBudget) });
@@ -228,13 +258,18 @@ function detailRow(label: string, value: string) {
 }
 
 function buildBillingHtml(booking: BookingEmailShape) {
-  const quote = calculateDetailedPrice(booking.loadSize, booking.distanceKm ?? 0, booking);
+  const serviceType = normalizeServiceType(booking.serviceType);
+  const estimate = calculateBookingEstimate(serviceType, booking.loadSize, booking.distanceKm ?? 0, booking);
+  const quote = estimate?.moveQuote ?? null;
+  const driverFee = estimate?.driverFee ?? null;
   const finalAmount = getEffectiveBillAmount(booking);
+  const estimatedAmount = parseMoney(booking.estimatedCost) ?? 0;
   const totalKm = roundDistanceKm(booking.distanceKm ?? 0);
-  const rows = [
-    detailRow("Final bill", formatCAD(finalAmount)),
-    detailRow("Estimated quote", formatCAD(parseMoney(booking.estimatedCost) ?? 0)),
-  ];
+  const rows = [detailRow("Final bill", formatCAD(finalAmount))];
+
+  if (quote || estimatedAmount > 0) {
+    rows.push(detailRow("Estimated quote", formatCAD(estimatedAmount)));
+  }
 
   if (quote) {
     rows.push(detailRow("Load size", escapeHtml(quote.loadLabel)));
@@ -245,6 +280,15 @@ function buildBillingHtml(booking: BookingEmailShape) {
       ),
     );
     rows.push(detailRow("Travel charge", formatCAD(quote.travelCost)));
+  }
+
+  if (driverFee) {
+    rows.push(detailRow("Distance", `${formatDistanceKm(totalKm)} total`));
+    rows.push(detailRow("Driver fee", formatCAD(driverFee.fee)));
+  }
+
+  if (!quote && !driverFee) {
+    rows.push(detailRow("Distance", `${formatDistanceKm(totalKm)} total`));
   }
 
   for (const detail of getQuoteDetailsList(booking)) {
@@ -265,10 +309,11 @@ export function buildBookingConfirmationEmail(
   },
 ) {
   return `
-    <h2>Your move with ${escapeHtml(site.name)} has been confirmed</h2>
+    <h2>Your booking with ${escapeHtml(site.name)} has been confirmed</h2>
     <p>Your booking confirmation PDF is attached to this email for your records.</p>
     ${detailRow("Booking reference", `#${booking.id}`)}
     ${detailRow("Customer", escapeHtml(booking.fullName))}
+    ${detailRow("Service requested", escapeHtml(getServiceTypeLabel(booking.serviceType)))}
     ${detailRow("Move date", escapeHtml(formatMoveDate(booking.moveDate)))}
     ${detailRow("Origin", escapeHtml(booking.origin))}
     ${detailRow("Destination", escapeHtml(booking.destination))}

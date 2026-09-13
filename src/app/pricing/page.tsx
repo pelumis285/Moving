@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import PricingCalculator from "@/components/PricingCalculator";
+import { site } from "@/lib/site";
 import { LOAD_SIZES, formatCAD, HST_RATE } from "@/lib/pricing";
 
 export const metadata: Metadata = {
@@ -29,9 +31,41 @@ const faqs = [
   },
 ];
 
+const pricingJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "FAQPage",
+      mainEntity: faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.q,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: faq.a,
+        },
+      })),
+    },
+    {
+      "@type": "Service",
+      name: "Ontario moving estimate calculator",
+      provider: {
+        "@id": `${site.url}#moving-company`,
+      },
+      areaServed: "Ontario, Canada",
+      serviceType: ["Moving estimate", "Local moving quote", "Long-distance moving quote"],
+    },
+  ],
+};
+
 export default function PricingPage() {
   return (
     <>
+      <Script
+        id="pricing-json-ld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
+      />
+
       <section className="bg-slate-900 py-14 text-center">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <h1 className="text-3xl font-extrabold text-white sm:text-4xl">Transparent Moving Prices</h1>
@@ -58,6 +92,10 @@ export default function PricingPage() {
               from, stair access, packing help, long-carry access, and your target budget. There is also
               room to explain where you want us to negotiate the quote.
             </p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              If you are comparing movers by city, route, or building type, the service-area page gives a
+              clearer picture of the Ontario locations we commonly support.
+            </p>
           </div>
 
           <div className="rounded-2xl bg-slate-50 p-5">
@@ -75,6 +113,12 @@ export default function PricingPage() {
               className="mt-5 inline-flex rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
             >
               Open Custom Quote Form
+            </Link>
+            <Link
+              href="/service-areas"
+              className="mt-3 inline-flex rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              View Ontario Service Areas
             </Link>
           </div>
         </div>

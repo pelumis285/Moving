@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatDistanceKm } from "@/lib/distance-format";
 import { getTodayInSiteTimeZone } from "@/lib/move-date";
-import { getBuildingTypeLabel, getLongCarryLabel } from "@/lib/pricing";
+import { getBuildingTypeLabel, getDriverVehicleLabel, getLongCarryLabel, getServiceTypeLabel } from "@/lib/pricing";
 
 type AdminBooking = {
   id: number;
@@ -11,7 +12,10 @@ type AdminBooking = {
   phone: string;
   origin: string;
   destination: string;
+  serviceType: string;
   loadSize: string;
+  driverVehicleType: string | null;
+  driverRequestNotes: string | null;
   moveDate: string;
   distanceKm: number | null;
   fragileItems: number;
@@ -59,6 +63,28 @@ type AdminReview = {
   approvedAtLabel: string;
 };
 
+type AdminDriverProfile = {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  city: string;
+  serviceArea: string;
+  licenseClass: string;
+  yearsExperience: number;
+  pricePerKm: string | null;
+  vehicleTypes: string;
+  availableForLongDistance: boolean;
+  weekendAvailability: boolean;
+  bio: string;
+  status: string;
+  adminNotes: string | null;
+  createdAt: string;
+  approvedAt: string | null;
+  createdAtLabel: string;
+  approvedAtLabel: string;
+};
+
 type BookingDraftState = Record<
   number,
   {
@@ -69,6 +95,13 @@ type BookingDraftState = Record<
 >;
 
 type ReviewDraftState = Record<
+  number,
+  {
+    adminNotes: string;
+  }
+>;
+
+type DriverDraftState = Record<
   number,
   {
     adminNotes: string;
@@ -114,6 +147,15 @@ function getStars(rating: number) {
   return "★★★★★".slice(0, rating) + "☆☆☆☆☆".slice(0, 5 - rating);
 }
 
+function formatLoadSize(value: string) {
+  if (value === "driver-only") return "Driver-only request";
+
+  return value
+    .split("-")
+    .map((part) => (part ? part[0]!.toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
+
 function createBookingDrafts(bookings: AdminBooking[]) {
   return bookings.reduce<BookingDraftState>((acc, booking) => {
     acc[booking.id] = {
@@ -134,14 +176,25 @@ function createReviewDrafts(reviews: AdminReview[]) {
   }, {});
 }
 
+function createDriverDrafts(drivers: AdminDriverProfile[]) {
+  return drivers.reduce<DriverDraftState>((acc, driver) => {
+    acc[driver.id] = {
+      adminNotes: driver.adminNotes ?? "",
+    };
+    return acc;
+  }, {});
+}
+
 export default function AdminBookingsDashboard() {
   const today = getTodayInSiteTimeZone();
   const [passwordInput, setPasswordInput] = useState(getSavedAdminPassword);
   const [adminPassword, setAdminPassword] = useState("");
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [drivers, setDrivers] = useState<AdminDriverProfile[]>([]);
   const [bookingDrafts, setBookingDrafts] = useState<BookingDraftState>({});
   const [reviewDrafts, setReviewDrafts] = useState<ReviewDraftState>({});
+  const [driverDrafts, setDriverDrafts] = useState<DriverDraftState>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -150,15 +203,24 @@ export default function AdminBookingsDashboard() {
     action: BookingAction;
   } | null>(null);
   const [activeReviewId, setActiveReviewId] = useState<number | null>(null);
+  const [activeDriverId, setActiveDriverId] = useState<number | null>(null);
 
   const hasPassword = Boolean(adminPassword);
   const bookingCountLabel = useMemo(
     () => `${bookings.length} booking${bookings.length === 1 ? "" : "s"}`,
     [bookings.length],
   );
+  const driverCountLabel = useMemo(
+    () => `${drivers.length} driver application${drivers.length === 1 ? "" : "s"}`,
+    [drivers.length],
+  );
   const reviewCountLabel = useMemo(
     () => `${reviews.length} review${reviews.length === 1 ? "" : "s"}`,
     [reviews.length],
+  );
+  const pendingDriverCount = useMemo(
+    () => drivers.filter((driver) => driver.status === "pending").length,
+    [drivers],
   );
 
   async function loadDashboard(password: string) {
@@ -167,11 +229,16 @@ export default function AdminBookingsDashboard() {
 
     try {
       const headers = { "x-admin-password": password };
-      const [bookingsRes, reviewsRes] = await Promise.all([
+      const [bookingsRes, reviewsRes, driversRes] = await Promise.all([
         fetch("/api/admin/bookings", { headers, cache: "no-store" }),
         fetch("/api/admin/reviews", { headers, cache: "no-store" }),
+        fetch("/api/admin/drivers", { headers, cache: "no-store" }),
       ]);
-      const [bookingsData, reviewsData] = await Promise.all([bookingsRes.json(), reviewsRes.json()]);
+      const [bookingsData, reviewsData, driversData] = await Promise.all([
+        bookingsRes.json(),
+        reviewsRes.json(),
+        driversRes.json(),
+      ]);
 
       if (!bookingsRes.ok || !bookingsData.ok) {
         throw new Error(bookingsData.error || "Could not load bookings.");
@@ -181,10 +248,16 @@ export default function AdminBookingsDashboard() {
         throw new Error(reviewsData.error || "Could not load reviews.");
       }
 
+      if (!driversRes.ok || !driversData.ok) {
+        throw new Error(driversData.error || "Could not load driver applications.");
+      }
+
       setBookings(bookingsData.bookings);
       setReviews(reviewsData.reviews);
+      setDrivers(driversData.drivers);
       setBookingDrafts(createBookingDrafts(bookingsData.bookings));
       setReviewDrafts(createReviewDrafts(reviewsData.reviews));
+      setDriverDrafts(createDriverDrafts(driversData.drivers));
       setAdminPassword(password);
       window.sessionStorage.setItem(ADMIN_PASSWORD_STORAGE_KEY, password);
     } catch (loadError) {
@@ -227,6 +300,15 @@ export default function AdminBookingsDashboard() {
     }));
   }
 
+  function updateDriverDraft(id: number, value: string) {
+    setDriverDrafts((current) => ({
+      ...current,
+      [id]: {
+        adminNotes: value,
+      },
+    }));
+  }
+
   function buildConfirmationNotice(
     bookingId: number,
     emailDelivered: boolean,
@@ -245,6 +327,16 @@ export default function AdminBookingsDashboard() {
     }
 
     return `Booking #${bookingId} updated. Email and SMS delivery are not configured yet.`;
+  }
+
+  function buildDriverNotice(driverId: number, status: "approved" | "rejected" | "pending", emailDelivered: boolean) {
+    const statusLabel = status === "approved" ? "approved" : status === "rejected" ? "rejected" : "set to pending";
+
+    if (emailDelivered) {
+      return `Driver profile #${driverId} ${statusLabel} and the applicant was notified by email.`;
+    }
+
+    return `Driver profile #${driverId} ${statusLabel}. Applicant email delivery is not configured yet.`;
   }
 
   async function handleConfirm(bookingId: number) {
@@ -382,13 +474,48 @@ export default function AdminBookingsDashboard() {
     }
   }
 
+  async function handleModerateDriver(driverId: number, status: "approved" | "rejected" | "pending") {
+    setActiveDriverId(driverId);
+    setError("");
+    setNotice("");
+
+    try {
+      const res = await fetch("/api/admin/drivers/moderate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
+        body: JSON.stringify({
+          id: driverId,
+          status,
+          adminNotes: driverDrafts[driverId]?.adminNotes ?? "",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Could not update driver profile status.");
+      }
+
+      setNotice(buildDriverNotice(driverId, status, Boolean(data.emailDelivered)));
+      await loadDashboard(adminPassword);
+    } catch (driverError) {
+      setError(driverError instanceof Error ? driverError.message : "Could not update driver profile status.");
+    } finally {
+      setActiveDriverId(null);
+    }
+  }
+
   function handleLogout() {
     setAdminPassword("");
     setPasswordInput("");
     setBookings([]);
     setReviews([]);
+    setDrivers([]);
     setBookingDrafts({});
     setReviewDrafts({});
+    setDriverDrafts({});
     setNotice("");
     setError("");
     window.sessionStorage.removeItem(ADMIN_PASSWORD_STORAGE_KEY);
@@ -399,8 +526,8 @@ export default function AdminBookingsDashboard() {
       <div className={`${cardClass} max-w-lg`}>
         <h2 className="text-xl font-bold text-slate-900">Admin Access</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Enter the admin password to review bookings, moderate customer reviews, and manage move
-          confirmations.
+          Enter the admin password to review bookings, moderate customer reviews, approve driver
+          applications, and manage move confirmations.
         </p>
         <form
           className="mt-6 space-y-4"
@@ -443,9 +570,21 @@ export default function AdminBookingsDashboard() {
         <div>
           <h2 className="text-xl font-bold text-slate-900">Admin Dashboard</h2>
           <p className="mt-1 text-sm text-slate-600">
-            {bookingCountLabel} and {reviewCountLabel}. Review quote details, approve customer reviews,
-            and send booking confirmations from one place.
+            {bookingCountLabel}, {driverCountLabel}, and {reviewCountLabel}. Review quote details,
+            approve driver applicants and customer reviews, and send booking confirmations from one place.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Bookings: {bookings.length}</span>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-800">
+              Driver applications: {drivers.length}
+            </span>
+            <span className="rounded-full bg-red-100 px-3 py-1 text-red-700">
+              Pending drivers: {pendingDriverCount}
+            </span>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+              Reviews: {reviews.length}
+            </span>
+          </div>
         </div>
         <div className="flex flex-wrap gap-3">
           <button
@@ -554,8 +693,25 @@ export default function AdminBookingsDashboard() {
                         <strong>Move date:</strong> {formatDateOnly(booking.moveDate)}
                       </p>
                       <p className="mt-2">
+                        <strong>Service:</strong> {getServiceTypeLabel(booking.serviceType)}
+                      </p>
+                      <p className="mt-2">
+                        <strong>{booking.serviceType === "driver-only" ? "Request type" : "Load size"}:</strong>{" "}
+                        {formatLoadSize(booking.loadSize)}
+                      </p>
+                      {booking.serviceType !== "moving" ? (
+                        <p className="mt-2">
+                          <strong>Vehicle to drive:</strong> {getDriverVehicleLabel(booking.driverVehicleType)}
+                        </p>
+                      ) : null}
+                      <p className="mt-2">
+                        <strong>Distance:</strong> {formatDistanceKm(booking.distanceKm ?? 0)}
+                      </p>
+                      <p className="mt-2">
                         <strong>Estimated cost:</strong>{" "}
-                        {formatMoney(Number(booking.estimatedCost ?? booking.currentBillAmount))}
+                        {Number(booking.estimatedCost ?? 0) > 0
+                          ? formatMoney(Number(booking.estimatedCost))
+                          : "Pending estimate"}
                       </p>
                       <p className="mt-2">
                         <strong>Current billed amount:</strong> {formatMoney(booking.currentBillAmount)}
@@ -579,6 +735,14 @@ export default function AdminBookingsDashboard() {
                         Custom Quote Factors
                       </h5>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <p>
+                          <strong>Service:</strong> {getServiceTypeLabel(booking.serviceType)}
+                        </p>
+                        {booking.serviceType !== "moving" ? (
+                          <p>
+                            <strong>Vehicle:</strong> {getDriverVehicleLabel(booking.driverVehicleType)}
+                          </p>
+                        ) : null}
                         <p>
                           <strong>Fragile items:</strong> {booking.fragileItems}
                         </p>
@@ -611,6 +775,11 @@ export default function AdminBookingsDashboard() {
                           {booking.targetBudget ? formatMoney(Number(booking.targetBudget)) : "Not provided"}
                         </p>
                       </div>
+                      {booking.driverRequestNotes ? (
+                        <p className="mt-3 whitespace-pre-wrap">
+                          <strong>Driver request notes:</strong> {booking.driverRequestNotes}
+                        </p>
+                      ) : null}
                       {booking.negotiationNotes ? (
                         <p className="mt-3 whitespace-pre-wrap">
                           <strong>Negotiation notes:</strong> {booking.negotiationNotes}
@@ -682,6 +851,159 @@ export default function AdminBookingsDashboard() {
           {bookings.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-600">
               No bookings have been submitted yet.
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="space-y-6">
+        <div className={cardClass}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Driver Applications</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                See how many people have applied, review each driver profile, and approve applicants
+                before they are added to your active pool.
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <strong>{pendingDriverCount}</strong> pending approval
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6">
+          {drivers.map((driver) => {
+            const actionBusy = activeDriverId === driver.id;
+
+            return (
+              <article key={driver.id} className={cardClass}>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h4 className="text-xl font-bold text-slate-900">
+                        #{driver.id} {driver.fullName}
+                      </h4>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                        {driver.status}
+                      </span>
+                      <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                        {driver.pricePerKm ? `${formatMoney(Number(driver.pricePerKm))}/km` : "Rate pending"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {driver.email} | {driver.phone}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {driver.city} | {driver.serviceArea}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Applied {driver.createdAtLabel}. Approved {driver.approvedAtLabel}.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleModerateDriver(driver.id, "approved")}
+                      disabled={actionBusy}
+                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                    >
+                      {actionBusy ? "Working..." : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleModerateDriver(driver.id, "rejected")}
+                      disabled={actionBusy}
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleModerateDriver(driver.id, "pending")}
+                      disabled={actionBusy}
+                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      Set Pending
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+                  <div className="space-y-4 text-sm text-slate-700">
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <p>
+                          <strong>Home city:</strong> {driver.city}
+                        </p>
+                        <p>
+                          <strong>License class:</strong> {driver.licenseClass}
+                        </p>
+                        <p>
+                          <strong>Years of experience:</strong> {driver.yearsExperience}
+                        </p>
+                        <p>
+                          <strong>Price per kilometre:</strong>{" "}
+                          {driver.pricePerKm ? `${formatMoney(Number(driver.pricePerKm))}/km` : "Not set"}
+                        </p>
+                        <p>
+                          <strong>Long-distance routes:</strong>{" "}
+                          {driver.availableForLongDistance ? "Available" : "Not available"}
+                        </p>
+                        <p>
+                          <strong>Weekend availability:</strong> {driver.weekendAvailability ? "Yes" : "No"}
+                        </p>
+                      </div>
+                      <p className="mt-3 whitespace-pre-wrap">
+                        <strong>Service area:</strong> {driver.serviceArea}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 p-4">
+                      <h5 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                        Vehicle Types
+                      </h5>
+                      <p className="mt-3 whitespace-pre-wrap">{driver.vehicleTypes}</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 p-4">
+                      <h5 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                        Driver Bio
+                      </h5>
+                      <p className="mt-3 whitespace-pre-wrap">{driver.bio}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor={`driverNotes-${driver.id}`}>
+                        Admin notes
+                      </label>
+                      <textarea
+                        id={`driverNotes-${driver.id}`}
+                        rows={7}
+                        className={inputClass}
+                        value={driverDrafts[driver.id]?.adminNotes ?? ""}
+                        onChange={(event) => updateDriverDraft(driver.id, event.target.value)}
+                        placeholder="Optional note for approval, rejection, or internal follow-up."
+                      />
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                      Profile created: {driver.createdAtLabel}
+                      <br />
+                      Last approval timestamp: {driver.approvedAtLabel}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+
+          {drivers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-600">
+              No driver applications have been submitted yet.
             </div>
           ) : null}
         </div>
