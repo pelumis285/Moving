@@ -1,11 +1,12 @@
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import { navLinks, site } from "@/lib/site";
+import { cityPages, servicePages } from "@/lib/seo-pages";
 
 export default function Footer() {
   return (
     <footer className="mt-auto border-t border-slate-200 bg-slate-900 text-slate-300">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-5">
         <div className="md:col-span-2">
           <div className="flex items-center gap-2">
             <BrandLogo variant="footer" />
@@ -44,6 +45,12 @@ export default function Footer() {
             <li>{site.serviceArea}</li>
             <li>{site.hours}</li>
           </ul>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-white">Moving Services</h3>
+          <ul className="mt-4 space-y-2 text-sm">{servicePages.map((service) => <li key={service.slug}><Link href={`/services/${service.slug}`} className="text-slate-400 hover:text-white">{service.name}</Link></li>)}</ul>
+          <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-white">Popular Areas</h3>
+          <ul className="mt-4 space-y-2 text-sm">{cityPages.slice(0, 5).map((city) => <li key={city.slug}><Link href={`/movers/${city.slug}`} className="text-slate-400 hover:text-white">{city.name}</Link></li>)}</ul>
         </div>
       </div>
 

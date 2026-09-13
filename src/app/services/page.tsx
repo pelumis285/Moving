@@ -1,0 +1,6 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { servicePages } from "@/lib/seo-pages";
+
+export const metadata: Metadata = { title: "Ontario Moving Services", description: "Explore residential, apartment, long-distance, office and packing services from Surftmove across Ontario.", alternates: { canonical: "/services" } };
+export default function ServicesPage(){return <><section className="bg-slate-900 py-14 text-center text-white"><div className="mx-auto max-w-3xl px-4"><h1 className="text-4xl font-extrabold">Moving Services in Ontario</h1><p className="mt-4 text-slate-300">Choose the moving support that fits your home, building, business, and route.</p></div></section><section className="mx-auto max-w-6xl px-4 py-14 sm:px-6"><div className="grid gap-6 sm:grid-cols-2">{servicePages.map((service)=><article key={service.slug} className="rounded-2xl border border-slate-200 p-6 shadow-sm"><h2 className="text-2xl font-bold text-slate-900">{service.name}</h2><p className="mt-3 text-sm leading-relaxed text-slate-600">{service.intro}</p><Link href={`/services/${service.slug}`} className="mt-5 inline-flex font-semibold text-red-600">View service details →</Link></article>)}</div></section></>}

@@ -27,11 +27,11 @@ const steps = [
 ];
 
 const services = [
-  { title: "Residential Moving", text: "Apartments, condos, townhomes, and houses across Ontario.", icon: "🏠" },
-  { title: "Long-Distance Moves", text: "Toronto to Ottawa, Kingston to London, and routes across the province.", icon: "🚚" },
-  { title: "Commercial & Office", text: "Minimal-downtime relocations for businesses and offices.", icon: "🏢" },
-  { title: "Packing & Supplies", text: "Boxes, wrapping, and pro packing to keep your items safe.", icon: "📦" },
-  { title: "Driver Help For Rental Vehicles", text: "Already rented the truck, van, pickup, or car? Request a driver and we will review availability.", icon: "🛻" },
+  { title: "Residential Moving", text: "Apartments, condos, townhomes, and houses across Ontario.", icon: "🏠", href: "/services/residential-moving" },
+  { title: "Long-Distance Moves", text: "Planned routes between cities and communities across Ontario.", icon: "🚚", href: "/services/long-distance-moving" },
+  { title: "Commercial & Office", text: "Coordinated relocations for businesses and offices.", icon: "🏢", href: "/services/office-moving" },
+  { title: "Packing Services", text: "Packing, wrapping, and preparation support for your move.", icon: "📦", href: "/services/packing-services" },
+  { title: "Driver Help For Rental Vehicles", text: "Already rented the truck, van, pickup, or car? Request a driver and we will review availability.", icon: "🛻", href: "/driver-help" },
 ];
 
 const heroBadges = [
@@ -48,10 +48,10 @@ const trustPoints = [
 ];
 
 const serviceRoutes = [
-  "Toronto condo and apartment moves",
-  "Ottawa household and office relocations",
-  "Kingston to Toronto long-distance routes",
-  "Moves between major Ontario cities",
+  { label: "Toronto condo and apartment moves", href: "/movers/toronto" },
+  { label: "Barrie household and office relocations", href: "/movers/barrie" },
+  { label: "Hamilton local and long-distance moves", href: "/movers/hamilton" },
+  { label: "Moving services across major Ontario cities", href: "/movers" },
 ];
 
 const driverSupportPoints = [
@@ -60,6 +60,8 @@ const driverSupportPoints = [
   "Share route details, dates, and vehicle notes in the dedicated driver-help form",
   "Route distance is filled in automatically once both addresses are entered",
 ];
+
+const linkedCities = ["Barrie", "Toronto", "Mississauga", "Brampton", "Vaughan", "Markham", "Hamilton", "Kitchener"];
 
 const heroImage = {
   src: "/surftmove-crew-hero.jpg",
@@ -201,15 +203,15 @@ export default function HomePage() {
               Serving the Ontario cities customers actually search for.
             </h2>
             <p className="mt-4 max-w-2xl text-slate-600">
-              Customers in Toronto, Ottawa, Kingston, and other Ontario cities need to know right away
-              that you can handle their route. We support condo moves, household moves, office
+              Customers across Ontario need clear route and service information before they book.
+              We support condo moves, household moves, office
               relocations, and longer intercity moves across the province.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {serviceRoutes.map((route) => (
-                <div key={route} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                  <p className="text-sm font-semibold text-slate-900">{route}</p>
-                </div>
+                <Link key={route.href} href={route.href} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:border-red-400">
+                  <p className="text-sm font-semibold text-slate-900">{route.label}</p>
+                </Link>
               ))}
             </div>
           </div>
@@ -217,13 +219,14 @@ export default function HomePage() {
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm sm:p-8">
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Popular Cities We Serve</p>
             <div className="mt-5 flex flex-wrap gap-3">
-              {site.primaryCities.map((city) => (
-                <span
+              {linkedCities.map((city) => (
+                <Link
                   key={city}
+                  href={`/movers/${city.toLowerCase().replace(/\s+/g, "-")}`}
                   className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm"
                 >
                   {city}
-                </span>
+                </Link>
               ))}
             </div>
             <div className="mt-8 rounded-2xl bg-white p-5">
@@ -283,7 +286,7 @@ export default function HomePage() {
           </div>
           <div className="mt-12 grid gap-6 sm:grid-cols-2">
             {services.map((s) => (
-              <div key={s.title} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-6">
+              <Link href={s.href} key={s.title} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-6 transition hover:border-red-400 hover:shadow-sm">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-900 text-2xl">
                   {s.icon}
                 </div>
@@ -291,7 +294,7 @@ export default function HomePage() {
                   <h3 className="text-lg font-semibold text-slate-900">{s.title}</h3>
                   <p className="mt-1 text-sm leading-relaxed text-slate-600">{s.text}</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
